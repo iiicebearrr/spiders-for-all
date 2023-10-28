@@ -1,22 +1,20 @@
-import sqlalchemy
-from typing import Optional
+import sqlalchemy as sa
 from sqlalchemy import orm
 from datetime import datetime
 from bilibili import models
 from functools import cached_property, wraps
 
-engine = sqlalchemy.engine.create_engine("sqlite:///bilibili.db", echo=True)
+engine = sa.engine.create_engine("sqlite:///bilibili.db", echo=True)
 
-Session = sqlalchemy.orm.sessionmaker(bind=engine)
+Session = sa.orm.sessionmaker(bind=engine)
 
 
 class Base(orm.DeclarativeBase):
     pass
 
 
-class BilibiliPopularVideos(Base):
-    __tablename__ = "t_bilibili_popular_videos"
-    __doc__ = "bilibili popular videos information"
+class BaseBilibiliVideos(Base):
+    __abstract__ = True
 
     id: orm.Mapped[int] = orm.mapped_column(
         primary_key=True, comment="auto increment id"
@@ -73,6 +71,21 @@ class BilibiliPopularVideos(Base):
     @cached_property
     def rcmd_reason_info(self) -> models.RecommendReason:
         return models.RecommendReason(**self.rcmd_reason)
+
+
+class BilibiliPopularVideos(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_popular_videos"
+    __doc__ = "bilibili popular videos information"
+
+
+class BilibiliWeeklyVideos(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_weekly_videos"
+    __doc__ = "bilibili weekly videos information"
+
+    aid: orm.Mapped[int] = orm.mapped_column(comment="avid of a video")
+    bvid: orm.Mapped[str] = orm.mapped_column(comment="bvid of a video")
+    week: orm.Mapped[int] = orm.mapped_column(comment="Which week of a video")
+    rcmd_reason: orm.Mapped[str]
 
 
 def init_db():
