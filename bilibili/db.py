@@ -1,10 +1,14 @@
+from datetime import datetime
+from functools import cached_property
+from functools import wraps
+
 import sqlalchemy as sa
 from sqlalchemy import orm
-from datetime import datetime
-from bilibili import models
-from functools import cached_property, wraps
 
-engine = sa.engine.create_engine("sqlite:///bilibili.db", echo=True)
+from bilibili import models
+from conf import settings
+
+engine = sa.engine.create_engine("sqlite:///bilibili.db", echo=settings.DEBUG)
 
 Session = sa.orm.sessionmaker(bind=engine)
 
@@ -86,6 +90,19 @@ class BilibiliWeeklyVideos(BaseBilibiliVideos):
     bvid: orm.Mapped[str] = orm.mapped_column(comment="bvid of a video")
     week: orm.Mapped[int] = orm.mapped_column(comment="Which week of a video")
     rcmd_reason: orm.Mapped[str]
+
+
+class BilibiliPreciousVideos(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_precious_videos"
+    __doc__ = "bilibili precious videos information"
+
+    achievement: orm.Mapped[str]
+    rcmd_reason: orm.Mapped[str]
+    bvid: orm.Mapped[str] = orm.mapped_column(comment="bvid of a video")
+    aid: orm.Mapped[int] = orm.mapped_column(comment="avid of a video")
+
+    # TODO: remove non-exist columns instead of using optional
+    pub_location: orm.Mapped[str] = orm.mapped_column(nullable=True)
 
 
 def init_db():

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import typing
+from enum import Enum
 
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import field_serializer
-from enum import Enum
 
 
 class BilibiliResponse(BaseModel):
@@ -29,6 +29,10 @@ class WeeklyResponse(BilibiliResponse):
     data: WeeklyData
 
 
+class PreciousResponse(BilibiliResponse):
+    data: PreciousData
+
+
 class BilibiliResponseData(BaseModel):
     """Base data model of bilibili api"""
 
@@ -48,6 +52,13 @@ class WeeklyData(BilibiliResponseData):
     config: dict[str, typing.Any]
     reminder: str
     list_data: list[WeeklyVideoModel] = Field([], validation_alias="list")
+
+
+class PreciousData(BilibiliResponseData):
+    list_data: list[PreciousVideoModel] = Field([], validation_alias="list")
+    explain: str
+    media_id: int
+    title: str
 
 
 class VideoOwner(BaseModel):
@@ -112,6 +123,12 @@ class PopularVideoModel(VideoModel):
 
 class WeeklyVideoModel(VideoModel):
     rcmd_reason: str
+
+
+class PreciousVideoModel(VideoModel):
+    rcmd_reason: str
+    achievement: str
+    pub_location: str | None = Field(None, exclude=True)
 
 
 class VideoSource(Enum):

@@ -1,15 +1,17 @@
 from __future__ import annotations
+
 import abc
 import typing
+from functools import cached_property
+
 import requests
 import sqlalchemy as sa
-import click
-from sqlalchemy import orm
-from bilibili import models
-from bilibili import db
 from pydantic import BaseModel
+from sqlalchemy import orm
+
+from bilibili import db
+from bilibili import models
 from utils import helper
-from functools import cached_property
 
 Session = db.Session
 
@@ -56,6 +58,8 @@ def calculate_end_page(total: int, page_size: int, start_page_number: int) -> in
 
 
 class BaseBilibiliSpider(Spider):
+    response_model: typing.Type[models.BilibiliResponse] | None = None
+
     def before(self):
         pass
 
@@ -83,11 +87,10 @@ class BaseBilibiliSpider(Spider):
     def get_request_args(self) -> dict:
         return {"headers": helper.user_agent_headers()}
 
-    @abc.abstractmethod
     def get_items_from_response(
-        self, response: requests.Response
+        self, response: models.BilibiliResponse
     ) -> typing.Iterable[BaseModel]:
-        pass
+        return response.data.list_data
 
     def save_to_db(self, items: typing.Iterable[BaseModel]):
         with Session() as s:
@@ -125,12 +128,6 @@ class PageSpider(BaseBilibiliSpider):
         self.page_number = page_number
         self.end_page_number = calculate_end_page(total, page_size, page_number)
 
-    @abc.abstractmethod
-    def get_items_from_response(
-        self, response: requests.Response
-    ) -> typing.Iterable[BaseModel]:
-        pass
-
     def get_items(self) -> typing.Iterable[BaseModel]:
         count = 0
         while self.page_number <= self.end_page_number:
@@ -151,11 +148,6 @@ class SearchSpider(BaseBilibiliSpider):
     def __init__(self, **search_params):
         super().__init__()
         self.search_params = search_params
-
-    def get_items_from_response(
-        self, response: models.BilibiliResponse
-    ) -> typing.Iterable[BaseModel]:
-        return response.data.list_data
 
     def get_items(self) -> typing.Iterable[BaseModel]:
         yield from self.get_items_from_response(self.send_request())
@@ -180,11 +172,6 @@ class PopularSpider(PageSpider):
                 "ps": self.page_size,
             },
         }
-
-    def get_items_from_response(
-        self, response: models.BilibiliResponse
-    ) -> typing.Iterable[BaseModel]:
-        return response.data.list_data
 
     def recreate(self, items: typing.Iterable[BaseModel], session: sa.orm.Session):
         items = list(items)
@@ -241,6 +228,42 @@ class WeeklySpider(SearchSpider):
 
 
 class PreciousSpider(PageSpider):
+    api = "https://api.bilibili.com/x/web-interface/popular/precious"
+    name = "precious"
+    default_page_size = 100
+    default_total = 100
+    item_model = models.PreciousVideoModel
+    response_model = models.PreciousResponse
+    database_model = db.BilibiliPreciousVideos
+
+    def __init__(
+        self,
+        total: int = default_total,
+        page_size: int = default_page_size,
+        page_number: int = 1,
+    ):
+        super().__init__(total, page_size, page_number)
+
+    def get_request_args(self) -> dict:
+        return {
+            **super().get_request_args(),
+            "params": {"page_size": self.page_size, "page": self.page_number},
+        }
+
+    def recreate(self, items: typing.Iterable[BaseModel], session: sa.orm.Session):
+        session.execute(sa.delete(self.database_model))
+        session.add_all([self.process_item(item) for item in items])
+
+
+class RankSpider:
+    pass
+
+
+class MusicSpider:
+    pass
+
+
+class DramaSpider:
     pass
 
 
@@ -254,6 +277,6 @@ def run_spider(name: str, *args, **kwargs):
 
 
 if __name__ == "__main__":
-    # run_spider("popular", total=100)
-    # run_spider("weekly", week=239)
-    print(WeeklySpider.get_all_numbers())
+    run_spider("popular", total=100)
+    run_spider("weekly", week=239)
+    run_spider("precious")
