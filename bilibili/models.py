@@ -9,44 +9,59 @@ from pydantic import field_serializer
 
 
 class BilibiliResponse(BaseModel):
+    code: int
+    data: typing.Any
+    message: str | None = None
+
+
+class BilibiliVideoResponse(BilibiliResponse):
     """Base response model of bilibili api"""
 
-    code: int
-    data: BilibiliResponseData
-    message: str | None
-    ttl: int
+    data: BilibiliVideoResponseData
 
 
-class PopularResponse(BilibiliResponse):
+class BilibiliPlayResponse(BilibiliResponse):
+    data: BilibiliPlayResponseData
+
+
+class RankDramaResponse(BilibiliPlayResponse):
+    data: RankDramaData = Field(..., validation_alias="result")
+
+
+class PopularResponse(BilibiliVideoResponse):
     """Response model of bilibili popular api"""
 
     data: PopularData
 
 
-class WeeklyResponse(BilibiliResponse):
+class WeeklyResponse(BilibiliVideoResponse):
     """Response model of bilibili weekly api"""
 
     data: WeeklyData
 
 
-class PreciousResponse(BilibiliResponse):
+class PreciousResponse(BilibiliVideoResponse):
     data: PreciousData
 
 
-class BilibiliResponseData(BaseModel):
+class BilibiliVideoResponseData(BaseModel):
     """Base data model of bilibili api"""
 
     list_data: list[VideoModel] = Field([], validation_alias="list")
 
 
-class PopularData(BilibiliResponseData):
+class BilibiliPlayResponseData(BaseModel):
+    list_data: list[PlayModel] = Field([], validation_alias="list")
+
+
+class PopularData(BilibiliVideoResponseData):
     """Data model of bilibili popular api"""
 
     no_more: bool
     list_data: list[PopularVideoModel] = Field([], validation_alias="list")
 
 
-class WeeklyData(BilibiliResponseData):
+class WeeklyData(BilibiliVideoResponseData):
     """Data model of bilibili weekly api"""
 
     config: dict[str, typing.Any]
@@ -54,22 +69,22 @@ class WeeklyData(BilibiliResponseData):
     list_data: list[WeeklyVideoModel] = Field([], validation_alias="list")
 
 
-class PreciousData(BilibiliResponseData):
+class PreciousData(BilibiliVideoResponseData):
     list_data: list[PreciousVideoModel] = Field([], validation_alias="list")
     explain: str
     media_id: int
     title: str
 
 
+class RankDramaData(BilibiliVideoResponseData):
+    list_data: list[PlayModel] = Field([], validation_alias="list")
+    note: str
+
+
 class VideoOwner(BaseModel):
     mid: int
     name: str
     face: str
-
-
-class RecommendReason(BaseModel):
-    content: str
-    corner_mark: int
 
 
 class VideoStat(BaseModel):
@@ -86,33 +101,39 @@ class VideoStat(BaseModel):
     view: int
 
 
+class PlayStat(BaseModel):
+    danmaku: int
+    follow: int
+    series_follow: int
+    view: int
+
+
 class VideoModel(BaseModel):
     aid: int
     bvid: str
     cid: int
-    copyright: int
     desc: str
-    duration: int
-    dynamic: str
-    enable_vt: bool
-    first_frame: str | None = None
-    is_ogv: int
-    mission_id: int | None = None
     owner: VideoOwner
-    pic: str
-    pub_location: str
     pubdate: int
-    rcmd_reason: RecommendReason
-    season_type: int
     short_link_v2: str
     stat: VideoStat
-    state: int
     tid: int
     title: str
     tname: str
-    videos: int
 
-    @field_serializer("owner", "rcmd_reason", "stat")
+    @field_serializer("owner", "stat")
+    def to_string(self, value: BaseModel) -> str:
+        return value.model_dump_json() if isinstance(value, BaseModel) else value
+
+
+class PlayModel(BaseModel):
+    rank: int
+    rating: str
+    stat: PlayStat
+    title: str
+    url: str
+
+    @field_serializer("stat")
     def to_string(self, value: BaseModel) -> str:
         return value.model_dump_json() if isinstance(value, BaseModel) else value
 
@@ -126,9 +147,7 @@ class WeeklyVideoModel(VideoModel):
 
 
 class PreciousVideoModel(VideoModel):
-    rcmd_reason: str
     achievement: str
-    pub_location: str | None = Field(None, exclude=True)
 
 
 class VideoSource(Enum):

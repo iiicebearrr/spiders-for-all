@@ -26,35 +26,18 @@ class BaseBilibiliVideos(Base):
     aid: orm.Mapped[int] = orm.mapped_column(unique=True, comment="avid of a video")
     bvid: orm.Mapped[str] = orm.mapped_column(unique=True, comment="bvid of a video")
     cid: orm.Mapped[int] = orm.mapped_column(comment="cid")
-    copyright: orm.Mapped[int] = orm.mapped_column(comment="copyright")
     desc: orm.Mapped[str] = orm.mapped_column(comment="description of a video")
-    duration: orm.Mapped[int] = orm.mapped_column(comment="duration of a video")
-    dynamic: orm.Mapped[str] = orm.mapped_column(comment="dynamic of a video")
-    enable_vt: orm.Mapped[bool] = orm.mapped_column(comment="enable_vt of a video")
-    first_frame: orm.Mapped[str] = orm.mapped_column(
-        comment="first_frame of a video", nullable=True
-    )
-    is_ogv: orm.Mapped[int] = orm.mapped_column(comment="is_ogv of a video")
-    mission_id: orm.Mapped[int] = orm.mapped_column(
-        comment="mission_id of a video", nullable=True
-    )
-    owner: orm.Mapped[int] = orm.mapped_column(comment="owner info of a video")
-    pic: orm.Mapped[str] = orm.mapped_column(comment="pic of a video")
-    pub_location: orm.Mapped[str] = orm.mapped_column(comment="pub_location of a video")
+
+    owner: orm.Mapped[str] = orm.mapped_column(comment="owner info of a video")
+
     pubdate: orm.Mapped[int] = orm.mapped_column(comment="pubdate of a video")
-    rcmd_reason: orm.Mapped[str] = orm.mapped_column(
-        comment="recommended reason of a video"
-    )
-    season_type: orm.Mapped[int] = orm.mapped_column(comment="season_type of a video")
     short_link_v2: orm.Mapped[str] = orm.mapped_column(
         comment="short_link_v2 of a video"
     )
     stat: orm.Mapped[str] = orm.mapped_column(comment="stat of a video")
-    state: orm.Mapped[int] = orm.mapped_column(comment="state of a video")
     tid: orm.Mapped[int] = orm.mapped_column(comment="tid of a video")
     title: orm.Mapped[str] = orm.mapped_column(comment="title of a video")
     tname: orm.Mapped[str] = orm.mapped_column(comment="tag name of a video")
-    videos: orm.Mapped[int] = orm.mapped_column(comment="videos of a video")
 
     create_at: orm.Mapped[datetime] = orm.mapped_column(
         default=datetime.now, comment="create time of a video"
@@ -72,9 +55,26 @@ class BaseBilibiliVideos(Base):
     def stat_info(self) -> models.VideoStat:
         return models.VideoStat(**self.stat)
 
-    @cached_property
-    def rcmd_reason_info(self) -> models.RecommendReason:
-        return models.RecommendReason(**self.rcmd_reason)
+
+class BaseBilibiliPlay(Base):
+    __abstract__ = True
+
+    id: orm.Mapped[int] = orm.mapped_column(
+        comment="auto increment id", primary_key=True
+    )
+    rank: orm.Mapped[int] = orm.mapped_column(comment="rank of a video")
+    rating: orm.Mapped[str] = orm.mapped_column(comment="rating of a video")
+    stat: orm.Mapped[str] = orm.mapped_column(comment="stat of a video")
+    title: orm.Mapped[str] = orm.mapped_column(comment="title of a video")
+    url: orm.Mapped[str] = orm.mapped_column(comment="url of a video")
+
+    create_at: orm.Mapped[datetime] = orm.mapped_column(
+        default=datetime.now, comment="create time of a video"
+    )
+
+    update_at: orm.Mapped[datetime] = orm.mapped_column(
+        default=datetime.now, comment="update time of a video", onupdate=datetime.now
+    )
 
 
 class BilibiliPopularVideos(BaseBilibiliVideos):
@@ -89,7 +89,6 @@ class BilibiliWeeklyVideos(BaseBilibiliVideos):
     aid: orm.Mapped[int] = orm.mapped_column(comment="avid of a video")
     bvid: orm.Mapped[str] = orm.mapped_column(comment="bvid of a video")
     week: orm.Mapped[int] = orm.mapped_column(comment="Which week of a video")
-    rcmd_reason: orm.Mapped[str]
 
 
 class BilibiliPreciousVideos(BaseBilibiliVideos):
@@ -97,12 +96,133 @@ class BilibiliPreciousVideos(BaseBilibiliVideos):
     __doc__ = "bilibili precious videos information"
 
     achievement: orm.Mapped[str]
-    rcmd_reason: orm.Mapped[str]
     bvid: orm.Mapped[str] = orm.mapped_column(comment="bvid of a video")
     aid: orm.Mapped[int] = orm.mapped_column(comment="avid of a video")
 
-    # TODO: remove non-exist columns instead of using optional
-    pub_location: orm.Mapped[str] = orm.mapped_column(nullable=True)
+
+class BilibiliRankDrama(BaseBilibiliPlay):
+    __tablename__ = "t_bilibili_rank_drama"
+    __doc__ = "bilibili rank drama information"
+
+
+class BilibiliRankAll(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_all"
+    __doc__ = "bilibili rank all information"
+
+
+class BilibiliRankCnCartoon(BaseBilibiliPlay):
+    __tablename__ = "t_bilibili_rank_cn_cartoon"
+    __doc__ = "bilibili rank cn cartoon information"
+
+
+class BilibiliRankCnRelated(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_cn_related"
+    __doc__ = "bilibili rank cn related information"
+
+
+class BilibiliRankDocumentary(BaseBilibiliPlay):
+    __tablename__ = "t_bilibili_rank_documentary"
+    __doc__ = "bilibili rank documentary information"
+
+
+class BilibiliRankCartoon(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_cartoon"
+    __doc__ = "bilibili rank cartoon information"
+
+
+class BilibiliRankMusic(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_music"
+    __doc__ = "bilibili rank music information"
+
+
+class BilibiliRankDance(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_dance"
+    __doc__ = "bilibili rank dance information"
+
+
+class BilibiliRankGame(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_game"
+    __doc__ = "bilibili rank game information"
+
+
+class BilibiliRankTech(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_tech"
+    __doc__ = "bilibili rank tech information"
+
+
+class BilibiliRankKnowledge(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_knowledge"
+    __doc__ = "bilibili rank knowledge information"
+
+
+class BilibiliRankSport(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_sport"
+    __doc__ = "bilibili rank sport information"
+
+
+class BilibiliRankCar(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_car"
+    __doc__ = "bilibili rank car information"
+
+
+class BilibiliRankLife(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_life"
+    __doc__ = "bilibili rank life information"
+
+
+class BilibiliRankFood(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_food"
+    __doc__ = "bilibili rank food information"
+
+
+class BilibiliRankAnimal(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_animal"
+    __doc__ = "bilibili rank animal information"
+
+
+class BilibiliRankAuto(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_auto"
+    __doc__ = "bilibili rank auto information"
+
+
+class BilibiliRankFashion(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_fashion"
+    __doc__ = "bilibili rank fashion information"
+
+
+class BilibiliRankEnt(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_ent"
+    __doc__ = "bilibili rank ent information"
+
+
+class BilibiliRankFilm(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_film"
+    __doc__ = "bilibili rank film information"
+
+
+class BilibiliRankMovie(BaseBilibiliPlay):
+    __tablename__ = "t_bilibili_rank_movie"
+    __doc__ = "bilibili rank movie information"
+
+
+class BilibiliRankTv(BaseBilibiliPlay):
+    __tablename__ = "t_bilibili_rank_tv"
+    __doc__ = "bilibili rank tv information"
+
+
+class BilibiliRankVariety(BaseBilibiliPlay):
+    __tablename__ = "t_bilibili_rank_variety"
+    __doc__ = "bilibili rank variety information"
+
+
+class BilibiliRankOrigin(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_origin"
+    __doc__ = "bilibili rank origin information"
+
+
+class BilibiliRankNew(BaseBilibiliVideos):
+    __tablename__ = "t_bilibili_rank_new"
+    __doc__ = "bilibili rank new information"
 
 
 def init_db():
