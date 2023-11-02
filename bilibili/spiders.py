@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import abc
 import typing
 from functools import cached_property
+from itertools import batched
 
 import requests
 import sqlalchemy as sa
@@ -11,12 +11,11 @@ from sqlalchemy import orm
 
 from bilibili import db
 from bilibili import models
-from utils import helper
-from core.base import Spider
 from core.base import SPIDERS
+from core.base import Spider
 from core.base import get_all_spiders
+from utils import helper
 from utils.logger import get_logger
-from itertools import batched
 
 Session = db.Session
 

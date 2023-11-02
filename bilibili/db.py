@@ -22,21 +22,20 @@ class BaseBilibiliVideos(Base):
     id: orm.Mapped[int] = orm.mapped_column(
         primary_key=True, comment="auto increment id"
     )
+    title: orm.Mapped[str] = orm.mapped_column(comment="title of a video")
+    tname: orm.Mapped[str] = orm.mapped_column(comment="tag name of a video")
+
     aid: orm.Mapped[int] = orm.mapped_column(unique=True, comment="avid of a video")
     bvid: orm.Mapped[str] = orm.mapped_column(unique=True, comment="bvid of a video")
     cid: orm.Mapped[int] = orm.mapped_column(comment="cid")
     desc: orm.Mapped[str] = orm.mapped_column(comment="description of a video")
-
     owner: orm.Mapped[str] = orm.mapped_column(comment="owner info of a video")
-
     pubdate: orm.Mapped[int] = orm.mapped_column(comment="pubdate of a video")
     short_link_v2: orm.Mapped[str] = orm.mapped_column(
         comment="short_link_v2 of a video"
     )
     stat: orm.Mapped[str] = orm.mapped_column(comment="stat of a video")
     tid: orm.Mapped[int] = orm.mapped_column(comment="tid of a video")
-    title: orm.Mapped[str] = orm.mapped_column(comment="title of a video")
-    tname: orm.Mapped[str] = orm.mapped_column(comment="tag name of a video")
 
     create_at: orm.Mapped[datetime] = orm.mapped_column(
         default=datetime.now, comment="create time of a video"

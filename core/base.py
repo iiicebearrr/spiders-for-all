@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import abc
-import typing
 import logging
-from sqlalchemy import orm
-from pydantic import BaseModel
+import typing
 from collections import namedtuple
-from utils.logger import default_logger
+
+from pydantic import BaseModel
+from sqlalchemy import orm
+
 from conf import settings
+from utils.logger import default_logger
 
 SPIDERS: dict[str, typing.Type[Spider]] = {}
 

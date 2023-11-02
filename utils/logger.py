@@ -1,5 +1,6 @@
 import logging
 import logging.config
+
 from conf import settings
 
 LEVEL = settings.LOG_LEVEL
@@ -15,7 +16,7 @@ LOGGING_CONFIG = {
         "file": {
             "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
-        }
+        },
     },
     "handlers": {
         "default": {
