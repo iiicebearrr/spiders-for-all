@@ -143,7 +143,7 @@ class PopularVideoModel(VideoModel):
 
 
 class WeeklyVideoModel(VideoModel):
-    rcmd_reason: str
+    pass
 
 
 class PreciousVideoModel(VideoModel):

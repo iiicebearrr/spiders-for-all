@@ -14,8 +14,13 @@ from bilibili import models
 from utils import helper
 from core.base import Spider
 from core.base import SPIDERS
+from core.base import get_all_spiders
+from utils.logger import get_logger
+from itertools import batched
 
 Session = db.Session
+
+logger = get_logger("bilibili")
 
 
 def calculate_end_page(total: int, page_size: int, start_page_number: int) -> int:
@@ -34,12 +39,14 @@ def calculate_end_page(total: int, page_size: int, start_page_number: int) -> in
 
 class BaseBilibiliSpider(Spider):
     response_model: typing.Type[models.BilibiliVideoResponse] | None = None
+    logger = logger
+    insert_batch = 100
 
     def before(self):
-        pass
+        self.info(f"[{'Start':^10}]: {self.name}[{self.alias}]")
 
     def after(self):
-        pass
+        self.info(f"[{'Finished':^10}]: {self.name}[{self.alias}]")
 
     def get_items(self) -> typing.Iterable[BaseModel]:
         yield from self.get_items_from_response(self.send_request())
@@ -55,9 +62,14 @@ class BaseBilibiliSpider(Spider):
     def send_request(
         self, method: str = "GET"
     ) -> models.BilibiliVideoResponse | requests.Response:
-        resp = requests.request(method, self.api, **self.get_request_args())
+        req_kwargs = self.get_request_args()
+        self.debug(f"==> {method.upper()} {self.api}: {req_kwargs}")
+        resp = requests.request(method, self.api, **req_kwargs)
+        self.debug(f"<== {method.upper()} {self.api}: {resp.status_code}")
         resp.raise_for_status()
-        return self.response_model(**resp.json()) if self.response_model else resp
+        json_data = resp.json()
+        self.debug(f"<== Response json: {json_data}")
+        return self.response_model(**json_data) if self.response_model else resp
 
     def get_request_args(self) -> dict:
         return {"headers": helper.user_agent_headers()}
@@ -69,12 +81,14 @@ class BaseBilibiliSpider(Spider):
 
     def save_to_db(self, items: typing.Iterable[BaseModel]):
         with Session() as s:
-            self.recreate(items, session=s)
+            for batch in batched(items, self.insert_batch):
+                self.recreate(batch, session=s)
+                self.info(f"Inserted {len(batch)} items")
             s.commit()
 
     def recreate(self, items: typing.Iterable[BaseModel], session: sa.orm.Session):
         session.execute(sa.delete(self.database_model))
-        session.add_all([self.process_item(item) for item in items])
+        session.add_all(map(self.process_item, items))
 
     def run(self):
         self.before()
@@ -85,10 +99,11 @@ class BaseBilibiliSpider(Spider):
 class BasePageSpider(BaseBilibiliSpider):
     default_page_size: int = 20
     default_page_number: int = 1
+    default_total: int = 100
 
     def __init__(
         self,
-        total: int,
+        total: int = default_total,
         page_size: int = default_page_size,
         page_number: int = default_page_number,
     ):
@@ -168,7 +183,8 @@ class WeeklySpiderBase(BaseSearchSpider):
     @cached_property
     def week(self) -> int:
         if self.search_key not in self.search_params:
-            raise ValueError(f"search_key {self.search_key} not in search_params")
+            self.get_all_numbers()
+            return max(self.numbers_list)
         return int(self.search_params[self.search_key])
 
     def get_request_args(self) -> dict:
@@ -201,18 +217,10 @@ class PreciousSpiderBase(BasePageSpider):
     name = "precious"
     alias = "入站必刷"
     default_page_size = 100
-    default_total = 100
+
     item_model = models.PreciousVideoModel
     response_model = models.PreciousResponse
     database_model = db.BilibiliPreciousVideos
-
-    def __init__(
-        self,
-        total: int = default_total,
-        page_size: int = default_page_size,
-        page_number: int = 1,
-    ):
-        super().__init__(total, page_size, page_number)
 
     def get_request_args(self) -> dict:
         return {
@@ -485,4 +493,7 @@ def run_spider(name: str, *args, **kwargs):
 
 
 if __name__ == "__main__":
-    ...
+    spiders = get_all_spiders()
+    for spider_cls, spider_item in spiders.items():
+        _spider = spider_cls()
+        _spider.run()

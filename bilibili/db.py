@@ -1,6 +1,5 @@
 from datetime import datetime
 from functools import cached_property
-from functools import wraps
 
 import sqlalchemy as sa
 from sqlalchemy import orm
@@ -229,28 +228,6 @@ def init_db():
     """init database"""
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
-
-
-def session(func):
-    """
-    session decorator
-
-    Usage:
-
-    from bilibili import db
-
-    @db.session
-    def func():
-        ...
-
-    """
-
-    @wraps(func)
-    def inner(*args, **kwargs):
-        # TODO: session decorator
-        return func(*args, **kwargs)
-
-    return inner
 
 
 if __name__ == "__main__":
