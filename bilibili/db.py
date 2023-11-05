@@ -1,15 +1,16 @@
 from datetime import datetime
-from functools import cached_property
-
+import json
 import sqlalchemy as sa
 from sqlalchemy import orm
-
+from sqlalchemy.ext.hybrid import hybrid_property
 from bilibili import models
 from conf import settings
 
-engine = sa.engine.create_engine("sqlite:///bilibili.db", echo=settings.DEBUG)
+db_file = str(settings.BASE_DIR / "bilibili/bilibili.db")
 
-Session = sa.orm.sessionmaker(bind=engine)
+engine = sa.engine.create_engine(f"sqlite:///{db_file}", echo=settings.DEBUG)
+
+Session = orm.sessionmaker(bind=engine)
 
 
 class Base(orm.DeclarativeBase):
@@ -45,13 +46,17 @@ class BaseBilibiliVideos(Base):
         default=datetime.now, comment="update time of a video", onupdate=datetime.now
     )
 
-    @cached_property
+    @hybrid_property
     def owner_info(self) -> models.VideoOwner:
-        return models.VideoOwner(**self.owner)
+        return models.VideoOwner(**json.loads(self.owner))
 
-    @cached_property
+    @hybrid_property
     def stat_info(self) -> models.VideoStat:
-        return models.VideoStat(**self.stat)
+        return models.VideoStat(**json.loads(self.stat))
+
+    @hybrid_property
+    def url(self) -> str:
+        return self.short_link_v2
 
 
 class BaseBilibiliPlay(Base):

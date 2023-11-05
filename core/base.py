@@ -74,3 +74,7 @@ class Spider(abc.ABC):
     @abc.abstractmethod
     def run(self):
         pass
+
+    @classmethod
+    def string(cls) -> str:
+        return f"<Spider {cls.name}({cls.alias}). Database model: {cls.database_model}>"

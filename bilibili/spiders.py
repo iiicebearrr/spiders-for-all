@@ -9,11 +9,8 @@ import sqlalchemy as sa
 from pydantic import BaseModel
 from sqlalchemy import orm
 
-from bilibili import db
-from bilibili import models
-from core.base import SPIDERS
-from core.base import Spider
-from core.base import get_all_spiders
+from bilibili import db, models
+from core.base import SPIDERS, Spider, get_all_spiders
 from utils import helper
 from utils.logger import get_logger
 
@@ -37,20 +34,38 @@ def calculate_end_page(total: int, page_size: int, start_page_number: int) -> in
 
 
 class BaseBilibiliSpider(Spider):
-    response_model: typing.Type[models.BilibiliVideoResponse] | None = None
+    response_model: typing.Type[
+        models.BilibiliVideoResponse | models.BilibiliPlayResponse
+    ]
     logger = logger
     insert_batch = 100
 
     def before(self):
+        """
+        Called before the spider starts
+        """
         self.info(f"[{'Start':^10}]: {self.name}[{self.alias}]")
 
     def after(self):
+        """
+        Called after the spider finishes
+        """
         self.info(f"[{'Finished':^10}]: {self.name}[{self.alias}]")
 
     def get_items(self) -> typing.Iterable[BaseModel]:
+        """
+        Get items from response
+        :return: An iterable object of `pydantic.BaseModel`
+        """
         yield from self.get_items_from_response(self.send_request())
 
     def process_item(self, item: BaseModel, **kwargs) -> orm.DeclarativeBase:
+        """
+        Create sqlalchemy model from pydantic model and kwargs
+        :param item: item validated by pydantic model
+        :param kwargs: extra kwargs to save to database
+        :return:
+        """
         return self.database_model(
             **{
                 **item.model_dump(),
@@ -60,7 +75,17 @@ class BaseBilibiliSpider(Spider):
 
     def send_request(
         self, method: str = "GET"
-    ) -> models.BilibiliVideoResponse | requests.Response:
+    ) -> models.BilibiliVideoResponse | models.BilibiliPlayResponse:
+        """
+        Send request to api
+        :param method: http method
+        :return: A `pydantic.BaseModel` object
+        """
+        if not issubclass(self.response_model, models.BilibiliResponse):
+            raise TypeError(
+                f"{self.response_model} is not a valid response model, "
+                f"should be a subclass of {models.BilibiliResponse}"
+            )
         req_kwargs = self.get_request_args()
         self.debug(f"==> {method.upper()} {self.api}: {req_kwargs}")
         resp = requests.request(method, self.api, **req_kwargs)
@@ -68,28 +93,49 @@ class BaseBilibiliSpider(Spider):
         resp.raise_for_status()
         json_data = resp.json()
         self.debug(f"<== Response json: {json_data}")
-        return self.response_model(**json_data) if self.response_model else resp
+        return self.response_model(**json_data)
 
     def get_request_args(self) -> dict:
+        """
+        Request kwargs to set
+        """
         return {"headers": helper.user_agent_headers()}
 
     def get_items_from_response(
-        self, response: models.BilibiliVideoResponse
+        self, response: models.BilibiliVideoResponse | models.BilibiliPlayResponse
     ) -> typing.Iterable[BaseModel]:
+        """
+        Get list data items from response model
+        :param response:
+        """
         return response.data.list_data
 
     def save_to_db(self, items: typing.Iterable[BaseModel]):
+        """
+        Save items to database
+        :param items: An iterable object of `pydantic.BaseModel`
+        :return:
+        """
         with Session() as s:
             for batch in batched(items, self.insert_batch):
                 self.recreate(batch, session=s)
                 self.info(f"Inserted {len(batch)} items")
             s.commit()
 
-    def recreate(self, items: typing.Iterable[BaseModel], session: sa.orm.Session):
+    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
+        """
+        Upsert/Recreate items to database
+        :param items: items to be upserted
+        :param session: sqlalchemy session object
+        :return:
+        """
         session.execute(sa.delete(self.database_model))
         session.add_all(map(self.process_item, items))
 
     def run(self):
+        """
+        Run the spider
+        """
         self.before()
         self.save_to_db(self.get_items())
         self.after()
@@ -112,12 +158,18 @@ class BasePageSpider(BaseBilibiliSpider):
         :param page_number: Start page number
         """
         super().__init__()
-        self.total = total
-        self.page_size = page_size
-        self.page_number = page_number
-        self.end_page_number = calculate_end_page(total, page_size, page_number)
+        self.total = int(total)
+        self.page_size = int(page_size)
+        self.page_number = int(page_number)
+        self.end_page_number = calculate_end_page(
+            self.total, self.page_size, self.page_number
+        )
 
     def get_items(self) -> typing.Iterable[BaseModel]:
+        """
+        Get items by page
+        :return:
+        """
         count = 0
         while self.page_number <= self.end_page_number:
             response = self.send_request()
@@ -134,11 +186,8 @@ class BaseSearchSpider(BaseBilibiliSpider):
         super().__init__()
         self.search_params = search_params
 
-    def get_items(self) -> typing.Iterable[BaseModel]:
-        yield from self.get_items_from_response(self.send_request())
 
-
-class PopularSpiderBase(BasePageSpider):
+class PopularSpider(BasePageSpider):
     api: str = "https://api.bilibili.com/x/web-interface/popular"
     name: str = "popular"
     alias = "综合热门"
@@ -155,17 +204,17 @@ class PopularSpiderBase(BasePageSpider):
             },
         }
 
-    def recreate(self, items: typing.Iterable[BaseModel], session: sa.orm.Session):
+    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
         items = list(items)
         session.execute(
             sa.delete(self.database_model).where(
-                self.database_model.bvid.in_([item.bvid for item in items]),
+                self.database_model.bvid.in_([item.bvid for item in items]),  # type: ignore
             )
         )
         session.add_all([self.process_item(item) for item in items])
 
 
-class WeeklySpiderBase(BaseSearchSpider):
+class WeeklySpider(BaseSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/popular/series/one"
     api_list = "https://api.bilibili.com/x/web-interface/popular/series/list"
     name = "weekly"
@@ -181,18 +230,19 @@ class WeeklySpiderBase(BaseSearchSpider):
 
     @cached_property
     def week(self) -> int:
+        # Use the latest week number if not specified
         if self.search_key not in self.search_params:
             self.get_all_numbers()
-            return max(self.numbers_list)
+            return max(self.numbers_list)  # type: ignore
         return int(self.search_params[self.search_key])
 
     def get_request_args(self) -> dict:
         return {**super().get_request_args(), "params": {"number": self.week}}
 
-    def recreate(self, items: typing.Iterable[BaseModel], session: sa.orm.Session):
+    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
         session.execute(
             sa.delete(self.database_model).where(
-                self.database_model.week == self.week,
+                self.database_model.week == self.week,  # type: ignore
             )
         )
         session.add_all([self.process_item(item, week=self.week) for item in items])
@@ -211,7 +261,7 @@ class WeeklySpiderBase(BaseSearchSpider):
         return cls.numbers_list
 
 
-class PreciousSpiderBase(BasePageSpider):
+class PreciousSpider(BasePageSpider):
     api = "https://api.bilibili.com/x/web-interface/popular/precious"
     name = "precious"
     alias = "入站必刷"
@@ -227,7 +277,7 @@ class PreciousSpiderBase(BasePageSpider):
             "params": {"page_size": self.page_size, "page": self.page_number},
         }
 
-    def recreate(self, items: typing.Iterable[BaseModel], session: sa.orm.Session):
+    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
         session.execute(sa.delete(self.database_model))
         session.add_all([self.process_item(item) for item in items])
 

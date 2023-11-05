@@ -8,9 +8,10 @@
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
-
+.vscode/
 # AWS User-specific
 .idea/**/aws.xml
+.idea/**/vcs.xml
 
 # Generated files
 .idea/**/contentModel.xml
@@ -239,4 +240,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-!/bilibili/bilibili.db
+*.db
