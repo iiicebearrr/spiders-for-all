@@ -8,7 +8,8 @@ from sqlalchemy import Row
 
 from bilibili import db
 
-type SortData = tuple[int, tuple[int, Row]]  # row_id, (view_count, row)
+type ViewCount = int
+type SortData = tuple[int, tuple[ViewCount, Row]]  # row_id, (view_count, row)
 type Model = typing.Type[db.BaseBilibiliVideos | db.BaseBilibiliPlay]
 
 
@@ -41,7 +42,7 @@ class Analysis:
 
     def show(self):
         with db.Session() as s:
-            videos_data: dict[int, tuple[int, Row]] = {
+            videos_data: dict[int, tuple[ViewCount, Row]] = {
                 item.id: (json.loads(item.stat)["view"], item)
                 for item in s.query(
                     self.model.id,
