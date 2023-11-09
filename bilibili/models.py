@@ -158,3 +158,33 @@ class VideoSource(Enum):
     MUSIC = 4
     DRAMA = 5
     SEARCH = 6
+
+
+class PlayInfoResponse(BaseModel):
+    code: int
+    message: str | None = None
+    data: PlayInfoData
+
+
+class PlayInfoData(BaseModel):
+    accept_quality: list[int]
+    accept_description: list[str]
+    dash: PlayInfoDash
+
+
+class PlayInfoDash(BaseModel):
+    video: list[PlayVideo]
+    audio: list[PlayAudio]
+
+
+class _PlayMediaInfo(BaseModel):
+    base_url: str
+    backup_url: list[str]
+
+
+class PlayVideo(_PlayMediaInfo):
+    quality: int = Field(..., validation_alias="id")
+
+
+class PlayAudio(_PlayMediaInfo):
+    audio_id: int = Field(..., validation_alias="id")

@@ -3,6 +3,6 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = False
+DEBUG = True
 
 LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
