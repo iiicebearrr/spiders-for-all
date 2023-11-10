@@ -1,13 +1,15 @@
-import requests
-import re
 import json
+import re
 import subprocess
-from pathlib import Path
-from utils.helper import user_agent_headers
-from bilibili import models
-from utils.logger import default_logger as logger
 from enum import Enum
 from operator import attrgetter
+from pathlib import Path
+
+import requests
+
+from bilibili import models
+from utils.helper import user_agent_headers
+from utils.logger import default_logger as logger
 
 type Media = models.PlayVideo | models.PlayAudio
 type Medias = list[Media]
@@ -30,7 +32,7 @@ class Downloader:
     origin: str = "https://www.bilibili.com"
     api: str = "https://www.bilibili.com/video/{bvid}/"
     default_video_suffix: str = ".mp4"
-    valid_video_suffixs: list[str] = [".mp4", ".mkv"]
+    valid_video_suffixes: list[str] = [".mp4", ".mkv"]
 
     def __init__(
         self,
@@ -39,29 +41,48 @@ class Downloader:
         filename: str | None = None,
         remove_temp_dir: bool = True,
         suffix: str = default_video_suffix,
+        sess_data: str | None = None,
     ):
+        """
+
+        Args:
+            bvid: bvid of the video
+            save_path: save path of the video
+            filename: filename of the video
+            remove_temp_dir: whether to remove the temp dir after download
+            suffix: suffix of the video
+            sess_data: pass to requests as cookies to download high quality video.
+                        You should get this from your browser -> Devtools -> Choose any request -> Cookies -> SESSDATA.
+        """
         self.bvid = bvid
         self.save_path = save_path if isinstance(save_path, Path) else Path(save_path)
         self.temp_dir = save_path / ".temp"  # type: ignore
         self.remove_temp_dir = remove_temp_dir
+        self.sess_data = sess_data
         # The final filename processed by ffmpeg
         self.filename = self.save_path / f"{filename or bvid}"
 
-        if self.filename.suffix not in self.valid_video_suffixs:
+        if self.filename.suffix not in self.valid_video_suffixes:
             self.filename = self.filename.with_suffix(suffix)
 
         self.api = self.__class__.api.format(bvid=bvid)
 
-        self.save_path.mkdir(exist_ok=True)
-        self.temp_dir.mkdir(exist_ok=True)
+        self.save_path.mkdir(exist_ok=True, parents=True)
+        self.temp_dir.mkdir(exist_ok=True, parents=True)
 
         self.videos: list[Path] = []
         self.audios: list[Path] = []
         self.temp_audio: Path | None = None
 
+        self.play_info: models.PlayInfoData | None = None
+
+        # TODO: Provide option to download the highest quality video only?
+
     def get_play_info(self) -> models.PlayInfoData:
         headers = {**user_agent_headers()}
-        response = requests.get(self.api, headers=headers)
+        cookies = {"SESSDATA": self.sess_data} if self.sess_data is not None else {}
+        logger.debug(f"Requesting {self.api} {'with cookies' if cookies else ''}")
+        response = requests.get(self.api, headers=headers, cookies=cookies)
         response.raise_for_status()
         html_content = response.text
         playinfo = RGX_FIND_PLAYINFO.search(html_content)
@@ -77,8 +98,10 @@ class Downloader:
             "Referer": self.origin,
             **user_agent_headers(),
         }
+
         save_path.unlink(missing_ok=True)
-        logger.debug(f"Downloading {media.base_url} to {save_path}. Headers: {headers}")
+
+        logger.debug(f"Downloading {media.base_url} to {save_path}")
         with requests.get(media.base_url, headers=headers, stream=True) as resp:  # type: ignore
             resp.raise_for_status()
             size = 0
@@ -92,10 +115,13 @@ class Downloader:
         return save_path
 
     def download_videos(self, medias: Videos):
-        # By default, will download the highest quality video
         for idx, media in enumerate(medias):
             logger.info(f"[{media.quality}] Downloading video...")
-            path = self._download(media, self.temp_dir / f"video-temp-{idx}.mp4")
+            path = self._download(
+                media,
+                self.temp_dir
+                / f"video-{self.play_info.quality_map[media.quality]}-{media.codecs}.mp4",
+            )
             self.videos.append(path)
 
     def download_audios(self, medias: Audios):
@@ -109,6 +135,14 @@ class Downloader:
             self.temp_dir.rmdir()
 
     def process(self, video_idx: int | None = None):
+        """
+
+        Args:
+            video_idx: Specify which video to process, default to the first video(which is the highest quality video)
+
+        Returns:
+
+        """
         # process with ffmpeg
         # By default, will concat the first video and all audios
         if video_idx is None:
@@ -123,6 +157,7 @@ class Downloader:
                 f.write(audio.read_bytes())
 
         # merge video and audio
+        # TODO: ffmpeg log
         cmd = [
             "ffmpeg",
             "-i",
@@ -134,6 +169,7 @@ class Downloader:
             "-c:a",
             "aac",
             str(self.filename),
+            "-y",
         ]
 
         logger.debug(f"FFMPEG: {' '.join(cmd)}")
@@ -142,19 +178,7 @@ class Downloader:
 
     def download(self):
         play_info = self.get_play_info()
-
-        # NOTE: Anonymouse user can only download the lowest quality video,
-        # choose the highest quality video
+        self.play_info = play_info
         videos = sorted(play_info.dash.video, key=attrgetter("quality"), reverse=True)
         self.download_videos(videos)
         self.download_audios(play_info.dash.audio)
-        self.process()
-
-
-if __name__ == "__main__":
-    from conf import settings
-
-    test_bvid = "BV1kg4y1R7Tj"
-    save_path = settings.BASE_DIR / "tmp"
-    downloader = Downloader(test_bvid, save_path, remove_temp_dir=False)
-    downloader.download()

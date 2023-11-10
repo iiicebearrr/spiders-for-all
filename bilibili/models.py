@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 from enum import Enum
+from functools import cached_property
 
 from pydantic import BaseModel
 from pydantic import Field
@@ -171,6 +172,10 @@ class PlayInfoData(BaseModel):
     accept_description: list[str]
     dash: PlayInfoDash
 
+    @cached_property
+    def quality_map(self) -> dict[int, str]:
+        return dict(zip(self.accept_quality, self.accept_description))
+
 
 class PlayInfoDash(BaseModel):
     video: list[PlayVideo]
@@ -184,6 +189,7 @@ class _PlayMediaInfo(BaseModel):
 
 class PlayVideo(_PlayMediaInfo):
     quality: int = Field(..., validation_alias="id")
+    codecs: str
 
 
 class PlayAudio(_PlayMediaInfo):

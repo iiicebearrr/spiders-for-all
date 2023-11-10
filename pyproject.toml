@@ -19,6 +19,10 @@ click = "^8.1.7"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.17.2"
+ruff = "^0.1.5"
+ruff-lsp = "^0.0.44"
+black = "^23.11.0"
+pre-commit = "^3.5.0"
 
 [build-system]
 requires = ["poetry-core"]

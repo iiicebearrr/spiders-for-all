@@ -1,10 +1,10 @@
+from pathlib import Path
+
 import click
-
-from bilibili import analysis, spiders
-
-from core.base import SPIDERS
-
 from rich import print
+
+from bilibili import analysis, spiders, download
+from core.base import SPIDERS
 
 _ = spiders  # to call init_subclass
 
@@ -49,6 +49,74 @@ def data_analysis(name: str, top_n: int):
     spider = SPIDERS[name]
     print(f"Running analysis: {spider.string()}")
     analysis.Analysis(spider.database_model, top_n).show()  # type: ignore
+
+
+@cli.command()
+@click.option("--bvid", "-b", help="Bvid of the video", required=True, type=str)
+@click.option(
+    "--save-path", "-s", help="Save path of the video", required=True, type=Path
+)
+@click.option(
+    "--filename",
+    "-f",
+    help="Filename of the video. By default, will use the bvid as the output filename",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--suffix",
+    "-x",
+    help="Suffix of the video",
+    required=False,
+    type=str,
+    default=".mp4",
+)
+@click.option(
+    "--remove-temp-dir",
+    "-r",
+    help="Whether to remove the temp dir after download",
+    required=False,
+    type=bool,
+    default=True,
+)
+@click.option(
+    "--sess-data",
+    "-d",
+    help="Pass to requests as cookies to download high quality video. "
+    "You should get this from:"
+    "your browser -> Devtools -> Choose any request -> Cookies -> SESSDATA.",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--video-idx",
+    "-i",
+    help="Index of video chosen to be processed by ffmpeg. "
+    "0 means the highest quality video.",
+    required=False,
+    type=int,
+    default=0,
+)
+def download_videos(
+    bvid: str,
+    save_path: str | Path,
+    filename: str | None = None,
+    suffix: str = ".mp4",
+    remove_temp_dir: bool = True,
+    sess_data: str | None = None,
+    video_idx: int = 0,
+):
+    downloader = download.Downloader(
+        bvid,
+        save_path,
+        filename=filename,
+        suffix=suffix,
+        remove_temp_dir=remove_temp_dir,
+        sess_data=sess_data,
+    )
+
+    downloader.download()
+    downloader.process(video_idx=video_idx)
 
 
 if __name__ == "__main__":
