@@ -3,6 +3,8 @@
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 .ruff_cache
 tmp/
+.idea
+.ruff_cache
 # User-specific stuff
 .idea/**/workspace.xml
 .idea/**/tasks.xml
@@ -20,7 +22,7 @@ tmp/
 .DS_Store
 
 bilibili/tmp.py
-
+*.db
 # Sensitive or high-churn files
 .idea/**/dataSources/
 .idea/**/dataSources.ids

@@ -4,9 +4,7 @@ import typing
 from enum import Enum
 from functools import cached_property
 
-from pydantic import BaseModel
-from pydantic import Field
-from pydantic import field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
 
 class BilibiliResponse(BaseModel):

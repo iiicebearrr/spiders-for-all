@@ -35,8 +35,8 @@ def run_spider(name: str, params: tuple[str, str]):
 @cli.command()
 def list_spiders():
     print("Available spiders:")
-    REVERSED = {v: k for k, v in SPIDERS.items()}
-    for spider in REVERSED:
+    reversed_map = {v: k for k, v in SPIDERS.items()}
+    for spider in reversed_map:
         print(f"  - {spider.string()})")
 
 

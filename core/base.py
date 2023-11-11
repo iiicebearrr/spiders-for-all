@@ -30,17 +30,28 @@ class Spider(abc.ABC):
 
     database_model: typing.Type[orm.DeclarativeBase]
     item_model: typing.Type[BaseModel]
-    response_model: typing.Type[BaseModel] | None = None
+    response_model: typing.Type[BaseModel]
 
     logger: logging.Logger = default_logger
 
     def __init__(self, *args, **kwargs):
         self.logger = kwargs.get("logger", self.__class__.logger)
-        if not all([self.database_model, self.item_model, self.response_model]):
-            # ? Maybe let these three params be optional
-            raise ValueError(
-                "db_model, pydantic_model, response_model must be set before init"
-            )
+
+        self.check_implementation()
+
+    def check_implementation(self):
+        attrs_required = [
+            "api",
+            "name",
+            "alias",
+            "database_model",
+            "item_model",
+            "response_model",
+        ]
+
+        for attr in attrs_required:
+            if getattr(self, attr, None) is None:
+                raise ValueError(f"Attribute {attr} is required")
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
