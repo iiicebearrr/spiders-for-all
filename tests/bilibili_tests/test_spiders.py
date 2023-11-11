@@ -253,6 +253,9 @@ class TestBaseBilibiliSpider(TestCase):
 
 
 class TestPageSpider(TestCase):
+    def setUp(self) -> None:
+        return super().setUp()
+
     pass
 
 
