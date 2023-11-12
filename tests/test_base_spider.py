@@ -4,6 +4,7 @@ from unittest import TestCase, mock
 from sqlalchemy.orm import DeclarativeBase, mapped_column, MappedColumn
 from pydantic import BaseModel
 from conf import settings
+import secrets
 
 
 class _Base(DeclarativeBase):
@@ -31,8 +32,8 @@ class TestBaseSpider(TestCase):
     def get_spider(self) -> Type[Spider]:
         class _TestSpider(Spider):
             api = "api"
-            name = "test"
-            alias = "test_alias"
+            name = secrets.token_hex(8)
+            alias = secrets.token_hex(16)
             database_model = TestTable
             item_model = TestItem
             response_model = TestResponse
@@ -108,9 +109,9 @@ class TestBaseSpider(TestCase):
 
     def test_register(self):
         s = self.get_spider()
-        self.assertIn("test", SPIDERS)
-        self.assertIn("test_alias", SPIDERS)
-        self.assertEqual(SPIDERS["test"], s)
+        self.assertIn(s.name, SPIDERS)
+        self.assertIn(s.alias, SPIDERS)
+        self.assertEqual(SPIDERS[s.name], s)
 
     def test_log(self):
         def mock_logger() -> mock.Mock:
