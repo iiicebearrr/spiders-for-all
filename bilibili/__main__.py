@@ -64,14 +64,6 @@ def data_analysis(name: str, top_n: int):
     type=str,
 )
 @click.option(
-    "--suffix",
-    "-x",
-    help="Suffix of the video",
-    required=False,
-    type=str,
-    default=".mp4",
-)
-@click.option(
     "--remove-temp-dir",
     "-r",
     help="Whether to remove the temp dir after download",
@@ -89,34 +81,50 @@ def data_analysis(name: str, top_n: int):
     type=str,
 )
 @click.option(
-    "--video-idx",
-    "-i",
-    help="Index of video chosen to be processed by ffmpeg. "
-    "0 means the highest quality video.",
+    "--quality",
+    "-q",
+    help="Quality of the video to download. Defaults to HIGHEST_QUALITY.",
     required=False,
     type=int,
-    default=0,
+    default=download.HIGHEST_QUALITY,
 )
-def download_videos(
+@click.option(
+    "--codecs",
+    "-c",
+    help="Regex to filter video codecs. Defaults to None.",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--ffmpeg-params",
+    "-fp",
+    help="Additional ffmpeg parameters. Defaults to None.",
+    required=False,
+    type=str,
+    multiple=True,
+)
+def download_video(
     bvid: str,
     save_path: str | Path,
     filename: str | None = None,
-    suffix: str = ".mp4",
     remove_temp_dir: bool = True,
     sess_data: str | None = None,
-    video_idx: int = 0,
+    quality: int = download.HIGHEST_QUALITY,
+    codecs: str | None = None,
+    ffmpeg_params: list[str] | None = None,
 ):
     downloader = download.Downloader(
         bvid,
         save_path,
-        filename=filename,
-        suffix=suffix,
-        remove_temp_dir=remove_temp_dir,
-        sess_data=sess_data,
+        filename,
+        remove_temp_dir,
+        sess_data,
+        quality,
+        codecs,
+        ffmpeg_params,
     )
 
     downloader.download()
-    downloader.process(video_idx=video_idx)
 
 
 if __name__ == "__main__":
