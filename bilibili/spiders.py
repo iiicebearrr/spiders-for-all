@@ -172,6 +172,7 @@ class BasePageSpider(BaseBilibiliSpider):
         """
         count = 0
         while self.page_number <= self.end_page_number:
+            # TODO: change page size instead of calculating `count`
             response = self.send_request()
             for item in self.get_items_from_response(response):
                 yield item
@@ -219,7 +220,6 @@ class WeeklySpider(BaseSearchSpider):
     api_list = "https://api.bilibili.com/x/web-interface/popular/series/list"
     name = "weekly"
     alias = "每周必看"
-    video_source = models.VideoSource.WEEKLY
     item_model = models.WeeklyVideoModel
     response_model = models.WeeklyResponse
     database_model = db.BilibiliWeeklyVideos
@@ -276,10 +276,6 @@ class PreciousSpider(BasePageSpider):
             **super().get_request_args(),
             "params": {"page_size": self.page_size, "page": self.page_number},
         }
-
-    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
-        session.execute(sa.delete(self.database_model))
-        session.add_all([self.process_item(item) for item in items])
 
 
 class RankAllSpider(BaseSearchSpider):

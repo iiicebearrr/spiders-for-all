@@ -4,7 +4,7 @@ import typing
 from enum import Enum
 from functools import cached_property
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, conlist
 
 
 class BilibiliResponse(BaseModel):
@@ -175,11 +175,6 @@ class PlayInfoData(BaseModel):
         return dict(zip(self.accept_quality, self.accept_description))
 
 
-class PlayInfoDash(BaseModel):
-    video: list[PlayVideo]
-    audio: list[PlayAudio]
-
-
 class _PlayMediaInfo(BaseModel):
     base_url: str
     backup_url: list[str]
@@ -192,3 +187,8 @@ class PlayVideo(_PlayMediaInfo):
 
 class PlayAudio(_PlayMediaInfo):
     audio_id: int = Field(..., validation_alias="id")
+
+
+class PlayInfoDash(BaseModel):
+    video: conlist(PlayVideo, min_length=1)  # type: ignore
+    audio: conlist(PlayAudio, min_length=1)  # type: ignore

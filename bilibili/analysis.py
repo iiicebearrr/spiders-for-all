@@ -15,6 +15,15 @@ type Model = typing.Type[db.BaseBilibiliVideos | db.BaseBilibiliPlay]
 
 class Analysis:
     def __init__(self, model: Model, n: int = 10) -> None:
+        """_summary_
+
+        Args:
+            model (Model): model to analysis
+            n (int, optional): N rows to analysis. Defaults to 10.
+
+        Raises:
+            TypeError: _description_
+        """
         if not issubclass(model, (db.BaseBilibiliVideos, db.BaseBilibiliPlay)):
             raise TypeError(f"{model} is not a valid video model")
 
