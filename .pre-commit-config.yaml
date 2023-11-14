@@ -1,9 +1,19 @@
-repos: 
+repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.1.4
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-      
+        args: [ --fix, --exit-non-zero-on-fix ]
+
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: unittest
+        name: unittest
+        entry: poetry run python -m unittest discover
+        language: python
+        'types': [ python ]
+        additional_dependencies: [ ]
+        pass_filenames: false

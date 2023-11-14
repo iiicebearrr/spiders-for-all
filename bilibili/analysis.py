@@ -25,7 +25,7 @@ class Analysis:
             TypeError: _description_
         """
         if not issubclass(model, (db.BaseBilibiliVideos, db.BaseBilibiliPlay)):
-            raise TypeError(f"{model} is not a valid video model")
+            raise TypeError(f"{model} is not a valid video model")  # pragma: no cover
 
         self.model = model
         self.n = n
@@ -74,9 +74,3 @@ class Analysis:
                 count += 1
 
         print(self.table)
-
-
-if __name__ == "__main__":
-    a = Analysis(db.BilibiliRankCnCartoon)
-
-    a.show()

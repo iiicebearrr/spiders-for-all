@@ -230,9 +230,9 @@ class BilibiliRankNew(BaseBilibiliVideos):
 
 def init_db():
     """init database"""
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    Base.metadata.drop_all(engine)  # pragma: no cover
+    Base.metadata.create_all(engine)  # pragma: no cover
 
 
 if __name__ == "__main__":
-    init_db()
+    init_db()  # pragma: no cover
