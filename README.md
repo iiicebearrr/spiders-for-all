@@ -4,6 +4,8 @@
 
 > 爬取/下载/展示bilibili综合热门/每周必看/入站必刷/排行榜视频数据信息
 
+[![codecov](https://codecov.io/github/iiicebearrr/bilibili-spiders/graph/badge.svg?token=7OysUawUSl)](https://codecov.io/github/iiicebearrr/bilibili-spiders)
+
 ## Install
 
 ```sh
