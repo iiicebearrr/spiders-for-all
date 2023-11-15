@@ -8,11 +8,9 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 rich = "^13.6.0"
-black = "^23.10.1"
 requests = "^2.31.0"
 sqlalchemy = "^2.0.22"
 pydantic = "^2.4.2"
-pre-commit = "^3.5.0"
 fake-useragent = "^1.3.0"
 click = "^8.1.7"
 
@@ -21,9 +19,14 @@ click = "^8.1.7"
 ipython = "^8.17.2"
 ruff = "^0.1.5"
 ruff-lsp = "^0.0.44"
-black = "^23.11.0"
 pre-commit = "^3.5.0"
+mypy = "^1.7.0"
+black = "^23.11.0"
+coverage = "^7.3.2"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+include = ["bilibili/*", "conf/*", "core/*", "utils/*"]
