@@ -46,11 +46,11 @@ class PreciousResponse(BilibiliVideoResponse):
 class BilibiliVideoResponseData(BaseModel):
     """Base data model of bilibili api"""
 
-    list_data: list[VideoModel] = Field([], validation_alias="list")
+    list_data: typing.Sequence[VideoModel] = Field([], validation_alias="list")
 
 
 class BilibiliPlayResponseData(BaseModel):
-    list_data: list[PlayModel] = Field([], validation_alias="list")
+    list_data: typing.Sequence[PlayModel] = Field([], validation_alias="list")
 
 
 class PopularData(BilibiliVideoResponseData):
@@ -75,7 +75,7 @@ class PreciousData(BilibiliVideoResponseData):
     title: str
 
 
-class RankDramaData(BilibiliVideoResponseData):
+class RankDramaData(BilibiliPlayResponseData):
     list_data: list[PlayModel] = Field([], validation_alias="list")
     note: str
 

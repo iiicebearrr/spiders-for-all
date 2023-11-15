@@ -24,7 +24,7 @@ def cli():
     multiple=True,
 )
 @cli.command()
-def run_spider(name: str, params: tuple[str, str]):
+def run_spider(name: str, params: tuple[tuple[str, str]]):
     if name not in SPIDERS:
         raise ValueError(f"Spider {name} not found")  # pragma: no cover
     spider = SPIDERS[name](**{k: v for k, v in params})

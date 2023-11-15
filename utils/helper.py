@@ -1,4 +1,4 @@
-from fake_useragent import UserAgent
+from fake_useragent import UserAgent  # type: ignore
 
 ua = UserAgent()
 

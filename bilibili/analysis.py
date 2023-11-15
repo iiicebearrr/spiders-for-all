@@ -1,5 +1,5 @@
 import json
-import typing
+from typing import Type, TypeAlias
 from functools import cached_property
 
 from rich import print
@@ -8,9 +8,9 @@ from sqlalchemy import Row
 
 from bilibili import db
 
-type ViewCount = int
-type SortData = tuple[int, tuple[ViewCount, Row]]  # row_id, (view_count, row)
-type Model = typing.Type[db.BaseBilibiliVideos | db.BaseBilibiliPlay]
+ViewCount: TypeAlias = int
+SortData: TypeAlias = tuple[int, tuple[ViewCount, Row]]  # row_id, (view_count, row)
+Model: TypeAlias = Type[db.BaseBilibiliVideos | db.BaseBilibiliPlay]
 
 
 class Analysis:

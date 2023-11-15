@@ -5,7 +5,7 @@ from enum import Enum
 from operator import attrgetter
 from pathlib import Path
 from functools import cached_property
-from typing import Callable
+from typing import Callable, TypeAlias
 
 import requests
 
@@ -13,12 +13,12 @@ from bilibili import models
 from utils.helper import user_agent_headers
 from utils.logger import default_logger as logger
 
-type Media = models.PlayVideo | models.PlayAudio
-type Medias = list[Media]
-type Videos = list[models.PlayVideo]
-type Audios = list[models.PlayAudio]
-type VideoPath = Path
-type AudioPath = Path
+Media: TypeAlias = models.PlayVideo | models.PlayAudio
+Medias: TypeAlias = list[Media]
+Videos: TypeAlias = list[models.PlayVideo]
+Audios: TypeAlias = list[models.PlayAudio]
+VideoPath: TypeAlias = Path
+AudioPath: TypeAlias = Path
 
 FFMPEG: str | None = None
 
@@ -127,8 +127,8 @@ class Downloader:
         playinfo = RGX_FIND_PLAYINFO.search(html_content)
         if playinfo is None:
             raise ValueError(f"Playinfo not found from {html_content}")
-        playinfo = playinfo.group(1)
-        return models.PlayInfoResponse(**json.loads(playinfo)).data
+        playinfo = playinfo.group(1)  # type: ignore
+        return models.PlayInfoResponse(**json.loads(playinfo)).data  # type: ignore
 
     def _download(self, media: Media, save_path: Path) -> Path:
         if not isinstance(save_path, Path):
