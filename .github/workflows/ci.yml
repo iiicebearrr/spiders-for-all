@@ -36,6 +36,7 @@ jobs:
           mypy bilibili conf core utils main.py
       - name: Run code coverage
         run: |
+          python -m bilibili.db
           coverage run -m unittest discover -s tests
           coverage report xml
 
