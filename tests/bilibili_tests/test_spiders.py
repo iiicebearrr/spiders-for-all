@@ -9,17 +9,7 @@ from pydantic import BaseModel
 
 from bilibili.db import Base as BaseTable
 from bilibili.models import BilibiliVideoResponse, VideoModel
-
-
-def mock_logger() -> mock.Mock:
-    logger = mock.Mock()
-    logger.log = mock.Mock()
-    logger.debug = mock.Mock()
-    logger.info = mock.Mock()
-    logger.warning = mock.Mock()
-    logger.error = mock.Mock()
-    logger.critical = mock.Mock()
-    return logger
+from tests._utils import mock_logger
 
 
 class TestTable(BaseTable):

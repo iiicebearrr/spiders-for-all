@@ -1,9 +1,10 @@
 from typing import Type
 from core.base import Spider, SPIDERS
-from unittest import TestCase, mock
+from unittest import TestCase
 from sqlalchemy.orm import DeclarativeBase, mapped_column, MappedColumn
 from pydantic import BaseModel
 from conf import settings
+from tests._utils import mock_logger
 import secrets
 
 
@@ -114,16 +115,6 @@ class TestBaseSpider(TestCase):
         self.assertEqual(SPIDERS[s.name], s)
 
     def test_log(self):
-        def mock_logger() -> mock.Mock:
-            logger = mock.Mock()
-            logger.log = mock.Mock()
-            logger.debug = mock.Mock()
-            logger.info = mock.Mock()
-            logger.warning = mock.Mock()
-            logger.error = mock.Mock()
-            logger.critical = mock.Mock()
-            return logger
-
         spider = self.get_spider()()
         spider.logger = mock_logger()
         spider.log("test")

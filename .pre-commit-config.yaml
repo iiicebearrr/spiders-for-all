@@ -15,7 +15,6 @@ repos:
         entry: poetry run python -m unittest discover
         language: python
         'types': [ python ]
-        additional_dependencies: [ ]
         pass_filenames: false
 
       - id: mypy
@@ -23,5 +22,4 @@ repos:
         entry: poetry run mypy bilibili conf core utils main.py
         language: python
         'types': [ python ]
-        additional_dependencies: [ mypy ]
         pass_filenames: false
