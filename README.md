@@ -4,6 +4,12 @@
 
 > 爬取/下载/展示bilibili综合热门/每周必看/入站必刷/排行榜视频数据信息
 
+
+
+https://github.com/iiicebearrr/bilibili-spiders/assets/110714291/3ac5859c-3a1b-4048-bff0-96c298caeccd
+
+
+
 ## 目录
 
 - [安装](#安装)
