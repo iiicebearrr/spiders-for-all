@@ -1,14 +1,28 @@
-<h1 align="center">Welcome to bilibili-spider 👋</h1>
-<p>
-</p>
-
-> 爬取/下载/展示bilibili综合热门/每周必看/入站必刷/排行榜视频数据信息
+# 欢迎来到 bilibili-spiders
 
 [![codecov](https://codecov.io/github/iiicebearrr/bilibili-spiders/graph/badge.svg?token=7OysUawUSl)](https://codecov.io/github/iiicebearrr/bilibili-spiders)
 
-## Install
+> 爬取/下载/展示bilibili综合热门/每周必看/入站必刷/排行榜视频数据信息
 
-### Using pip
+## 目录
+
+- [安装](#安装)
+    - [使用pip](#使用pip)
+    - [使用Docker](#使用docker)
+- [使用方法](#使用方法)
+    - [命令行](#命令行)
+        - [列出内置的爬虫](#列出内置的爬虫)
+        - [运行一个爬虫](#运行一个爬虫)
+        - [分析爬取的数据](#分析爬取的数据)
+        - [通过bvid下载视频](#通过bvid下载视频)
+        - [指定SESS_DATA下载高清视频](#指定sess_data下载高清视频)
+    - [代码](#代码)
+- [内置爬虫](#内置爬虫)
+- [定制你自己的爬虫](#定制你自己的爬虫)
+
+## 安装
+
+### 使用pip
 
 ```sh
 git clone https://github.com/iiicebearrr/bilibili-spiders.git 
@@ -19,7 +33,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Using docker
+### 使用Docker
 
 ```sh
 git clone https://github.com/iiicebearrr/bilibili-spiders.git 
@@ -28,68 +42,75 @@ docker build -t bilibili-spiders .
 docker run --name bs -d bilibili-spiders
 ```
 
-*Now you can connect to the container or run command locally using
-like `docker exec bs python -m bilibili list-spiders`*
+*现在你可以连接到容器内通过cli执行命令, 或直接在本地执行`docker exec bs python -m bilibili list-spiders`*
 
-## Usage
+## 使用方法
 
-### Cli
+### 命令行
 
-#### List all spiders
+#### 列出内置的爬虫
 
 ```sh
 python -m bilibili list-spiders
 ```
 
-#### Run a spider
+#### 运行一个爬虫
 
-*Before run a spider, you should run `python -m bilibili.db` to initialize database*
+*运行前, 你需要运行`python -m bilibili.db` 来初始化数据库, 这个操作只需要进行一次*
+
+**通过爬虫名称运行:**
 
 ```sh
 python -m bilibili run-spider -n precious
 ```
 
-or, use an alias:
+**或通过别名**:
 
 ```sh
 python -m bilibili run-spider -n 入站必刷
 ```
 
-#### Analysis crawled data
+#### 分析爬取的数据
 
 ```sh
 python -m bilibili data-analysis -n precious
 ```
 
-#### Download a video by bvid
+#### 通过bvid下载视频
 
-*Note: Before downloading the video, you should install `ffmpeg` on your host first*
+*注意: 在下载视频前, 你需要确保你的主机上已安装了`ffmpeg`, 如果是使用docker方式启动, 则可以忽略这一步*
 
 ```sh
 python -m bilibili download-video -b BV1hx411w7MG -s ./videos_dl
 ```
 
-#### Download a high quality video by bvid and session data
+#### 指定SESS_DATA下载高清视频
 
-*How to get your {SESS_DATA}:*
+*如何获取SESS_DATA*
 
-- Open your edge/chrome browser
-- Login to bilibili
-- Press `F12` to open developer tools
-- Refresh the page
-- Click `Network` tab
-- Choose any request
-- Find `SESSDATA` in `Request Headers` section and copy it
+- 网页登陆bilibili
+- 按`F12`打开开发者工具
+- 刷新页面
+- 打开`Network`选项卡
+- 选中任何一个包含`Cookies`的请求
+- 复制`Request Headers`中的`Cookie`字段中的`SESSDATA`值
 
 ```sh
 python -m bilibili download-video -b BV1hx411w7MG -s ./videos_dl -d {SESS_DATA}
 ```
 
-### Code
+#### 查看帮助
 
-#### Run a spider
+```sh
+python -m bilibili --help
+```
+
+### 代码
+
+#### 运行爬虫
 
 ```python
+
 from bilibili.spiders import PreciousSpider
 
 if __name__ == '__main__':
@@ -97,7 +118,7 @@ if __name__ == '__main__':
     spider.run()
 ```
 
-#### Analysis crawled data
+#### 分析爬取的数据
 
 ```python
 from bilibili.analysis import Analysis
@@ -108,7 +129,7 @@ if __name__ == '__main__':
     analysis.show()
 ```
 
-#### Download a video by bvid
+#### 通过bvid下载视频
 
 ```python
 from bilibili.download import Downloader
@@ -122,29 +143,10 @@ if __name__ == '__main__':
     downloader.download()
 ```
 
-## Spiders Reference
-
-#### PopularSpider
-
-TODO
-
-#### WeeklySpider
-
-TODO
-
-#### PreciousSpider
-
-TODO
-
-#### RankSpider
-
-TODO
-
-## Customize your own spider
-
-#### Inherit `core.base.Spider`
+## 定制你自己的爬虫
 
 ```python
+
 from core.base import Spider
 
 
@@ -167,17 +169,5 @@ class CustomSpider(Spider):
         # Note: You must implement this method.
         pass
 
+
 ```
-
-## Author
-
-👤 **iiiicebeaaaar@gmail.com**
-
-* Github: [@iiiicebeaaaar](https://github.com/iiiicebeaaaar)
-
-## Show your support
-
-Give a ⭐️ if this project helped you!
-
-***
-_This README was generated with ❤️ by [readme-md-generator](https://github.com/kefranabg/readme-md-generator)_
