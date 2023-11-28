@@ -9,10 +9,11 @@ import sqlalchemy as sa
 from pydantic import BaseModel
 from sqlalchemy import orm
 
-from bilibili import db, models
-from core.base import SPIDERS, Spider, get_all_spiders
-from utils import helper
-from utils.logger import get_logger
+from spiders_for_all.bilibili import models
+from spiders_for_all.bilibili import db
+from spiders_for_all.core.base import SPIDERS, Spider, get_all_spiders
+from spiders_for_all.utils import helper
+from spiders_for_all.utils.logger import get_logger
 
 Session = db.Session
 

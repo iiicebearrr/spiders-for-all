@@ -1,14 +1,14 @@
 import secrets
 from typing import Type
 
-from bilibili import spiders
+from spiders_for_all.bilibili import spiders
 from unittest import TestCase, mock
 
 from sqlalchemy.orm import mapped_column, MappedColumn
 from pydantic import BaseModel
 
-from bilibili.db import Base as BaseTable
-from bilibili.models import BilibiliVideoResponse, VideoModel
+from spiders_for_all.bilibili.db import Base as BaseTable
+from spiders_for_all.bilibili.models import BilibiliVideoResponse, VideoModel
 from tests._utils import mock_logger
 
 
@@ -91,7 +91,7 @@ class TestBaseBilibiliSpider(TestCase):
 
         self.assertEqual(spider.logger.info.call_count, 2)
 
-    @mock.patch("bilibili.spiders.requests")
+    @mock.patch("spiders_for_all.bilibili.spiders.requests")
     def test_send_request(
         self,
         mock_requests: mock.Mock,
@@ -333,7 +333,7 @@ class TestPopularSpider(TestCase):
             },
         )
 
-    @mock.patch("bilibili.spiders.sa")
+    @mock.patch("spiders_for_all.bilibili.spiders.sa")
     def test_recreate(self, mock_sa: mock.Mock):
         mock_sa.delete = mock.Mock(where=mock.Mock())
 
@@ -384,7 +384,7 @@ class TestWeeklySpider(TestCase):
             },
         )
 
-    @mock.patch("bilibili.spiders.sa")
+    @mock.patch("spiders_for_all.bilibili.spiders.sa")
     def test_recreate(self, mock_sa: mock.Mock):
         mock_sa.delete = mock.Mock(where=mock.Mock())
 
@@ -405,7 +405,7 @@ class TestWeeklySpider(TestCase):
 
         mock_session.add_all.assert_called_once()
 
-    @mock.patch("bilibili.spiders.requests")
+    @mock.patch("spiders_for_all.bilibili.spiders.requests")
     def test_get_all_weeks(self, mock_requests: mock.Mock):
         spider_cls = spiders.WeeklySpider
 

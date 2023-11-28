@@ -8,13 +8,9 @@
 
 https://github.com/iiicebearrr/bilibili-spiders/assets/110714291/3ac5859c-3a1b-4048-bff0-96c298caeccd
 
-
-
 ## 目录
 
 - [安装](#安装)
-    - [使用pip](#使用pip)
-    - [使用Docker](#使用docker)
 - [使用方法](#使用方法)
     - [命令行](#命令行)
         - [列出内置的爬虫](#列出内置的爬虫)
@@ -28,27 +24,9 @@ https://github.com/iiicebearrr/bilibili-spiders/assets/110714291/3ac5859c-3a1b-4
 
 ## 安装
 
-### 使用pip
-
 ```sh
-git clone https://github.com/iiicebearrr/bilibili-spiders.git 
-cd bilibili-spiders
-# Make sure your python version >= 3.12
-python -m virtualenv venv
-source venv/bin/activate
-pip install -r requirements.txt
+pip install spiders-for-all # python 版本 >= 3.10
 ```
-
-### 使用Docker
-
-```sh
-git clone https://github.com/iiicebearrr/bilibili-spiders.git 
-cd bilibili-spiders
-docker build -t bilibili-spiders .
-docker run --name bs -d bilibili-spiders
-```
-
-*现在你可以连接到容器内通过cli执行命令, 或直接在本地执行`docker exec bs python -m bilibili list-spiders`*
 
 ## 使用方法
 
@@ -57,29 +35,27 @@ docker run --name bs -d bilibili-spiders
 #### 列出内置的爬虫
 
 ```sh
-python -m bilibili list-spiders
+python -m spiders_for_all list-spiders
 ```
 
 #### 运行一个爬虫
 
-*运行前, 你需要运行`python -m bilibili.db` 来初始化数据库, 这个操作只需要进行一次*
-
 **通过爬虫名称运行:**
 
 ```sh
-python -m bilibili run-spider -n precious
+python -m spiders_for_all run-spider -n precious
 ```
 
 **或通过别名**:
 
 ```sh
-python -m bilibili run-spider -n 入站必刷
+python -m spiders_for_all run-spider -n 入站必刷
 ```
 
 #### 分析爬取的数据
 
 ```sh
-python -m bilibili data-analysis -n precious
+python -m spiders_for_all data-analysis -n precious
 ```
 
 #### 通过bvid下载视频
@@ -87,7 +63,7 @@ python -m bilibili data-analysis -n precious
 *注意: 在下载视频前, 你需要确保你的主机上已安装了`ffmpeg`, 如果是使用docker方式启动, 则可以忽略这一步*
 
 ```sh
-python -m bilibili download-video -b BV1hx411w7MG -s ./videos_dl
+python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl
 ```
 
 #### 指定SESS_DATA下载高清视频
@@ -102,13 +78,13 @@ python -m bilibili download-video -b BV1hx411w7MG -s ./videos_dl
 - 复制`Request Headers`中的`Cookie`字段中的`SESSDATA`值
 
 ```sh
-python -m bilibili download-video -b BV1hx411w7MG -s ./videos_dl -d {SESS_DATA}
+python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl -d {SESS_DATA}
 ```
 
 #### 查看帮助
 
 ```sh
-python -m bilibili --help
+python -m spiders_for_all --help
 ```
 
 ### 代码
@@ -117,7 +93,7 @@ python -m bilibili --help
 
 ```python
 
-from bilibili.spiders import PreciousSpider
+from spiders_for_all.bilibili.spiders import PreciousSpider
 
 if __name__ == '__main__':
     spider = PreciousSpider()
@@ -127,8 +103,8 @@ if __name__ == '__main__':
 #### 分析爬取的数据
 
 ```python
-from bilibili.analysis import Analysis
-from bilibili import db
+from spiders_for_all.bilibili.analysis import Analysis
+from spiders_for_all.bilibili import db
 
 if __name__ == '__main__':
     analysis = Analysis(db.BilibiliPreciousVideos)
@@ -138,7 +114,7 @@ if __name__ == '__main__':
 #### 通过bvid下载视频
 
 ```python
-from bilibili.download import Downloader
+from spiders_for_all.bilibili.download import Downloader
 
 if __name__ == '__main__':
     downloader = Downloader(
@@ -153,7 +129,7 @@ if __name__ == '__main__':
 
 ```python
 
-from core.base import Spider
+from spiders_for_all.core.base import Spider
 
 
 class CustomSpider(Spider):

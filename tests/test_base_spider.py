@@ -1,9 +1,9 @@
 from typing import Type
-from core.base import Spider, SPIDERS
+from spiders_for_all.core.base import Spider, SPIDERS
 from unittest import TestCase
 from sqlalchemy.orm import DeclarativeBase, mapped_column, MappedColumn
 from pydantic import BaseModel
-from conf import settings
+from spiders_for_all.conf import settings
 from tests._utils import mock_logger
 import secrets
 

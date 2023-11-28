@@ -3,14 +3,17 @@ import json
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext.hybrid import hybrid_property
-from bilibili import models
-from conf import settings
+from spiders_for_all.bilibili import models
+from spiders_for_all.conf import settings
+from spiders_for_all.utils.logger import default_logger as logger
 
-db_file = str(settings.BASE_DIR / "bilibili/bilibili.db")
+db_file = settings.DB_DIR / "bilibili.db"
 
-engine = sa.engine.create_engine(f"sqlite:///{db_file}", echo=settings.DEBUG)
+engine = sa.engine.create_engine(f"sqlite:///{str(db_file)}", echo=settings.DEBUG)
 
 Session = orm.sessionmaker(bind=engine)
+
+_INIT_DB = not db_file.exists()
 
 
 class Base(orm.DeclarativeBase):
@@ -234,5 +237,8 @@ def init_db():
     Base.metadata.create_all(engine)  # pragma: no cover
 
 
-if __name__ == "__main__":
-    init_db()  # pragma: no cover
+if _INIT_DB:
+    logger.info("Database not initialized. Initializing...")
+    init_db()
+else:
+    logger.info(f"Using database: {db_file}")
