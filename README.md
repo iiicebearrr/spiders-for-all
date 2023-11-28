@@ -6,7 +6,9 @@
 
 
 
-https://github.com/iiicebearrr/bilibili-spiders/assets/110714291/3ac5859c-3a1b-4048-bff0-96c298caeccd
+https://github.com/iiicebearrr/bilibili-spiders/assets/110714291/5b42abb8-9f18-404e-ba0f-407b817eef48
+
+
 
 ## 目录
 
