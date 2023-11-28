@@ -3,8 +3,9 @@ from pathlib import Path
 import click
 from rich import print
 
-from bilibili import analysis, spiders, download
-from core.base import SPIDERS
+from spiders_for_all.bilibili import spiders, download
+from spiders_for_all.bilibili import analysis
+from spiders_for_all.core.base import SPIDERS
 
 _ = spiders  # to call init_subclass
 

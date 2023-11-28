@@ -1,4 +1,4 @@
-from utils import helper
+from spiders_for_all.utils import helper
 from unittest import TestCase
 
 

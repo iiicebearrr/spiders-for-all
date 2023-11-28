@@ -9,9 +9,9 @@ from typing import Callable, TypeAlias
 
 import requests
 
-from bilibili import models
-from utils.helper import user_agent_headers
-from utils.logger import default_logger as logger
+from spiders_for_all.bilibili import models
+from spiders_for_all.utils.helper import user_agent_headers
+from spiders_for_all.utils.logger import default_logger as logger
 
 Media: TypeAlias = models.PlayVideo | models.PlayAudio
 Medias: TypeAlias = list[Media]

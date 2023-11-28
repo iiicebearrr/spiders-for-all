@@ -6,7 +6,7 @@ from rich import print
 from rich import table as rich_table
 from sqlalchemy import Row
 
-from bilibili import db
+from spiders_for_all.bilibili import db
 
 ViewCount: TypeAlias = int
 SortData: TypeAlias = tuple[int, tuple[ViewCount, Row]]  # row_id, (view_count, row)

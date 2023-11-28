@@ -1,33 +1,32 @@
 [tool.poetry]
-name = "bilibili"
-version = "0.1.0"
+name = "spiders-for-all"
+version = "0.1.1"
 description = ""
-authors = ["icebear <969549808@qq.com>"]
+authors = ["icebear <iiiicebeaaaar@gmail.com>"]
 readme = "README.md"
+packages = [{ include = "spiders_for_all" }]
 
 [tool.poetry.dependencies]
-python = "^3.12"
-rich = "^13.6.0"
-requests = "^2.31.0"
-sqlalchemy = "^2.0.22"
-pydantic = "^2.4.2"
-fake-useragent = "^1.3.0"
+python = "^3.10"
 click = "^8.1.7"
 environs = "^9.5.0"
+fake-useragent = "^1.4.0"
+pydantic = "^2.5.2"
+rich = "^13.7.0"
+requests = "^2.31.0"
+sqlalchemy = "^2.0.23"
 
 
 [tool.poetry.group.dev.dependencies]
-ipython = "^8.17.2"
-ruff = "^0.1.5"
-ruff-lsp = "^0.0.44"
-pre-commit = "^3.5.0"
-mypy = "^1.7.0"
-black = "^23.11.0"
+mypy = "^1.7.1"
+ruff = "^0.1.6"
 coverage = "^7.3.2"
+types-requests = "^2.31.0.10"
+pre-commit = "^3.5.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.coverage.run]
-include = ["bilibili/*", "conf/*", "core/*", "utils/*"]
+[tool.mypy]
+files = ["spiders_for_all"]

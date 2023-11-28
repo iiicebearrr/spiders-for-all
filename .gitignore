@@ -21,7 +21,7 @@ tmp/
 
 .DS_Store
 
-bilibili/tmp.py
+spiders_for_all/bilibili/tmp.py
 *.db
 # Sensitive or high-churn files
 .idea/**/dataSources/

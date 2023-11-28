@@ -1,14 +1,14 @@
 import pathlib
 from unittest import TestCase, mock
 
-from bilibili import download, models
-from conf import settings
+from spiders_for_all.bilibili import download, models
+from spiders_for_all.conf import settings
 
 
 class TestDownloader(TestCase):
     def setUp(self):
         self.bvid = "test_download_bv"
-        self.save_path = settings.BASE_DIR / "tests/bilibili_tests"
+        self.save_path = settings.WORKDIR / "bilibili_tests"
         self.downloader, self.mock_mkdir = self.get_test_downloader()
 
         self.video = models.PlayVideo(
@@ -38,7 +38,9 @@ class TestDownloader(TestCase):
             for i in range(3)
         ]
 
-        self.html_test = settings.BASE_DIR / "tests/bilibili_tests/play_info.txt"
+        self.html_test = (
+            settings.BASE_DIR / "tests" / "bilibili_tests" / "play_info.txt"
+        )
         self.play_info = models.PlayInfoData(
             accept_quality=[self.video.quality],
             accept_description=["test"],

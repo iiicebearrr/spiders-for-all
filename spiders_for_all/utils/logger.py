@@ -1,7 +1,7 @@
 import logging
 import logging.config
 
-from conf import settings
+from spiders_for_all.conf import settings
 
 LEVEL = settings.LOG_LEVEL
 
@@ -24,10 +24,10 @@ LOGGING_CONFIG = {
             "class": "rich.logging.RichHandler",
             "formatter": "rich",
         },
-        "file": {
+        "bilibili-file": {
             "level": LEVEL,
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": settings.BASE_DIR / "bilibili" / "bilibili.log",
+            "filename": settings.WORKDIR / "logs" / "bilibili.log",
             "maxBytes": 1024 * 1024 * 10,
             "backupCount": 5,
             "encoding": "utf-8",
@@ -36,7 +36,7 @@ LOGGING_CONFIG = {
     },
     "loggers": {
         "bilibili": {
-            "handlers": ["default", "file"],
+            "handlers": ["default", "bilibili-file"],
             "level": LEVEL,
             "propagate": True,
         },

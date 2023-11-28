@@ -8,8 +8,8 @@ from collections import namedtuple
 from pydantic import BaseModel
 from sqlalchemy import orm
 
-from conf import settings
-from utils.logger import default_logger
+from spiders_for_all.conf import settings
+from spiders_for_all.utils.logger import default_logger
 
 SPIDERS: dict[str, typing.Type[Spider]] = {}
 

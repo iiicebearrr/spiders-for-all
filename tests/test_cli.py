@@ -1,8 +1,8 @@
 from unittest import TestCase, mock
 from click.testing import CliRunner
 
-import bilibili.__main__
-from bilibili.__main__ import cli
+import spiders_for_all.bilibili.__main__ as bilibili_main
+from spiders_for_all.bilibili.__main__ import cli
 from pathlib import Path
 
 
@@ -15,7 +15,7 @@ class TestCli(TestCase):
         mock_spider_instance = mock.Mock(run=mock.Mock())
         mock_spider_cls.return_value = mock_spider_instance
 
-        with mock.patch.dict(bilibili.__main__.SPIDERS, {"popular": mock_spider_cls}):
+        with mock.patch.dict(bilibili_main.SPIDERS, {"popular": mock_spider_cls}):
             result = self.runner.invoke(
                 cli,  # type: ignore
                 ["run-spider", "-n", "popular"],
@@ -28,14 +28,14 @@ class TestCli(TestCase):
         result = self.runner.invoke(cli, ["list-spiders"])  # type: ignore
         self.assertEqual(result.exit_code, 0)
 
-    @mock.patch("bilibili.analysis.Analysis")
+    @mock.patch("spiders_for_all.bilibili.analysis.Analysis")
     def test_data_analysis(self, mock_analysis: mock.Mock):
         mock_spider_cls = mock.Mock(string=mock.Mock())
         mock_spider_cls.database_model = mock.Mock()
         mock_analysis_instance = mock.Mock(show=mock.Mock())
         mock_analysis.return_value = mock_analysis_instance
 
-        with mock.patch.dict(bilibili.__main__.SPIDERS, {"popular": mock_spider_cls}):
+        with mock.patch.dict(bilibili_main.SPIDERS, {"popular": mock_spider_cls}):
             result = self.runner.invoke(
                 cli,  # type: ignore
                 ["data-analysis", "-n", "popular", "-t", "10"],
@@ -46,7 +46,7 @@ class TestCli(TestCase):
             mock_analysis.assert_called_once_with(mock_spider_cls.database_model, 10)
             mock_analysis_instance.show.assert_called_once()
 
-    @mock.patch("bilibili.download.Downloader")
+    @mock.patch("spiders_for_all.bilibili.download.Downloader")
     def test_download(self, mock_downloader: mock.Mock):
         mock_downloader_inst = mock.Mock(download=mock.Mock())
 
