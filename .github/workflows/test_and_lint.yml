@@ -44,9 +44,3 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Publish to pypi
-        run: |
-          poetry config repositories.pypi https://upload.pypi.org/legacy/
-          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
-          poetry build
-          poetry publish 
