@@ -55,7 +55,9 @@ NOT_SET = object()
 
 
 def get_ffmpeg_executable() -> str:
-    return subprocess.check_output(["which", "ffmpeg"]).decode().strip()
+    return "ffmpeg"
+    # FIXME: which may not work on windows
+    # return subprocess.check_output(["which", "ffmpeg"]).decode().strip()
 
 
 class MediaType(Enum):
