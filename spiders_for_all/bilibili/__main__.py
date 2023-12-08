@@ -174,7 +174,8 @@ def download_video(
         ffmpeg_params,
     )
 
-    downloader.download()
+    with downloader:
+        downloader.download()
 
 
 @cli.command()

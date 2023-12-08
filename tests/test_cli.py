@@ -48,9 +48,12 @@ class TestCli(TestCase):
 
     @mock.patch("spiders_for_all.bilibili.download.Downloader")
     def test_download(self, mock_downloader: mock.Mock):
-        mock_downloader_inst = mock.Mock(download=mock.Mock())
-
-        mock_downloader.return_value = mock_downloader_inst
+        mock_downloader.return_value = mock.Mock(
+            __enter__=mock.Mock(
+                return_value=mock.Mock(download=mock.Mock(return_value=True))
+            ),
+            __exit__=mock.Mock(return_value=False),
+        )
 
         result = self.runner.invoke(
             cli,  # type: ignore
@@ -62,7 +65,9 @@ class TestCli(TestCase):
             "BV1Kb411W7KC", Path("/tmp"), "test.mp4", True, None, 0, None, ()
         )
 
-        mock_downloader_inst.download.assert_called_once()
+        print(mock_downloader.mock_calls)
+
+        mock_downloader.return_value.download.assert_called_once()
 
     @mock.patch("spiders_for_all.bilibili.download.MultiThreadDownloader")
     def test_multiple_download(self, mock_downloader: mock.Mock):
