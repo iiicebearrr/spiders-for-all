@@ -271,7 +271,9 @@ class TestDownloader(TestCase):
     def test_init_filename_with_suffix(self):
         # test filename with suffix
         filename_with_suffix = "test.mkv"
-        downloader, mock_mkdir = self.get_test_downloader(filename=filename_with_suffix)
+        downloader, mock_mkdir = self.get_test_downloader(
+            filename=filename_with_suffix, ffmpeg="ffmpeg"
+        )
 
         self.assertEqual(downloader.filepath, self.save_dir / filename_with_suffix)
         self.assertEqual(mock_mkdir.call_count, 2)
@@ -279,7 +281,9 @@ class TestDownloader(TestCase):
     @mock.patch.object(download.Console, "save_text")
     @mock.patch.object(download.Downloader, "log")
     def test_context_manager(self, mock_log: mock.Mock, mock_save_text: mock.Mock):
-        with download.Downloader(bvid="test-bv-id", save_dir=Path(".")) as downloader:
+        with download.Downloader(
+            bvid="test-bv-id", save_dir=Path("."), ffmpeg="ffmpeg"
+        ) as downloader:
             self.assertEqual(downloader.state, download.DownloadState.STARTED)
 
             self.assertIsInstance(downloader.console, Console)
@@ -297,7 +301,7 @@ class TestDownloader(TestCase):
     ):
         with self.assertRaisesRegex(ValueError, "test error"):
             with download.Downloader(
-                bvid="test-bv-id", save_dir=Path(".")
+                bvid="test-bv-id", save_dir=Path("."), ffmpeg="ffmpeg"
             ) as downloader:
                 self.assertEqual(downloader.state, download.DownloadState.STARTED)
 
@@ -312,7 +316,10 @@ class TestDownloader(TestCase):
     @mock.patch.object(download.Downloader, "log")
     def test_disable_terminal_log(self, mock_log: mock.Mock):
         with download.Downloader(
-            bvid="test-bv-id", save_dir=Path("."), disable_terminal_log=True
+            bvid="test-bv-id",
+            save_dir=Path("."),
+            disable_terminal_log=True,
+            ffmpeg="ffmpeg",
         ) as downloader:
             self.assertEqual(downloader.state, download.DownloadState.STARTED)
 
@@ -377,6 +384,7 @@ class TestDownloader(TestCase):
     ):
         downloader, _ = self.get_test_downloader(
             sess_data="test_sess_data",
+            ffmpeg="ffmpeg",
         )
 
         html_mock = self.html_test.read_text(encoding="utf-8")
