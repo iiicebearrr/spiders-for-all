@@ -4,11 +4,9 @@
 
 > 爬取、下载哔哩哔哩、小红书等网站数据、视频, 持续更新中...
 
+https://github.com/iiicebearrr/spiders-for-all/assets/110714291/d28e67f5-8ff2-4e39-b6de-14434cfb9804
 
-
-https://github.com/iiicebearrr/bilibili-spiders/assets/110714291/5b42abb8-9f18-404e-ba0f-407b817eef48
-
-
+https://github.com/iiicebearrr/spiders-for-all/assets/110714291/4696cd19-0940-451c-9206-c03efe4a65a5
 
 ## Features
 
@@ -41,6 +39,7 @@ https://github.com/iiicebearrr/bilibili-spiders/assets/110714291/5b42abb8-9f18-4
       - [运行一个爬虫](#运行一个爬虫)
       - [分析爬取的数据](#分析爬取的数据)
       - [通过bvid下载视频](#通过bvid下载视频)
+      - [多线程下载视频](#多线程下载视频)
       - [指定SESS\_DATA下载高清视频](#指定sess_data下载高清视频)
       - [查看帮助](#查看帮助)
     - [代码](#代码)
@@ -91,6 +90,27 @@ python -m spiders_for_all data-analysis -n precious
 
 ```sh
 python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl
+```
+
+#### 多线程下载视频
+
+*传入多个bvid:*
+```sh
+python -m spiders_for_all download-videos -b BVID1 BVID2 -s ./videos_dl
+```
+
+*或传入一个包含bvid列表的文件, 回车换行:*
+
+
+`bvid_list.txt`: 
+```txt
+BVID1
+BVID2
+...
+```
+
+```sh
+python -m spiders_for_all download-videos -b bvid_list.txt -s ./videos_dl
 ```
 
 #### 指定SESS_DATA下载高清视频
