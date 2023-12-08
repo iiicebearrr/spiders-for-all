@@ -63,3 +63,39 @@ class TestCli(TestCase):
         )
 
         mock_downloader_inst.download.assert_called_once()
+
+    @mock.patch("spiders_for_all.bilibili.download.MultiThreadDownloader")
+    def test_multiple_download(self, mock_downloader: mock.Mock):
+        mock_downloader_inst = mock.Mock(download=mock.Mock())
+
+        mock_downloader.return_value = mock_downloader_inst
+
+        result = self.runner.invoke(
+            cli,  # type: ignore
+            ["download-videos", "-b", "bvid1 bvid2", "-s", "/tmp"],
+        )
+
+        self.assertEqual(result.exit_code, 0)
+
+        mock_downloader.assert_called_once_with(
+            bvid_list="bvid1 bvid2",
+            save_dir=Path("/tmp"),
+            sess_data=None,
+            max_workers=4,
+        )
+
+        mock_downloader.reset_mock()
+
+        with mock.patch.object(bilibili_main.Path, "exists") as mock_path_exists:
+            mock_path_exists.return_value = True
+            result = self.runner.invoke(
+                cli,  # type: ignore
+                ["download-videos", "-b", "bvids.txt", "-s", "/tmp"],
+            )
+
+            mock_downloader.assert_called_once_with(
+                bvid_list=Path("bvids.txt"),
+                save_dir=Path("/tmp"),
+                sess_data=None,
+                max_workers=4,
+            )
