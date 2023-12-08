@@ -12,14 +12,14 @@ from spiders_for_all.bilibili.models import BilibiliVideoResponse, VideoModel
 from tests._utils import mock_logger
 
 
-class TestTable(BaseTable):
+class Table(BaseTable):
     __tablename__ = "test"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
     name: MappedColumn[str]
 
 
-class TestItem(BaseModel):
+class Item(BaseModel):
     name: str
     bvid: str = "test-bvid"
 
@@ -70,7 +70,7 @@ class TestBaseBilibiliSpider(TestCase):
         self.api = "https://api.bilibili.com/test"
         self.name = secrets.token_hex(8)
         self.alias = secrets.token_hex(16)
-        self.database_model = TestTable
+        self.database_model = Table
         self.item_model = VideoModel
         self.response_model = BilibiliVideoResponse
 
@@ -158,12 +158,12 @@ class TestBaseBilibiliSpider(TestCase):
         spider = self.spider
         spider.send_request = mock.Mock()
         spider.get_items_from_response = mock.Mock(
-            return_value=[TestItem(name=f"test-{i}") for i in range(10)]
+            return_value=[Item(name=f"test-{i}") for i in range(10)]
         )
 
         items = spider.get_items()
 
-        self.assertIsInstance(next(items), TestItem)  # type: ignore
+        self.assertIsInstance(next(items), Item)  # type: ignore
 
         self.assertEqual(
             len(list(items)),
@@ -174,7 +174,7 @@ class TestBaseBilibiliSpider(TestCase):
         spider = self.spider
         spider.database_model = mock.Mock()  # type: ignore
 
-        item = TestItem(name="test")
+        item = Item(name="test")
 
         spider.process_item(item, kwargs_1="test", kwargs_2="test")
 
@@ -197,14 +197,14 @@ class TestBaseBilibiliSpider(TestCase):
 
         spider.recreate = mock.Mock()
 
-        spider.save_to_db([TestItem(name=f"test-{i}") for i in range(10)])
+        spider.save_to_db([Item(name=f"test-{i}") for i in range(10)])
 
         mock_sa_session.assert_called_once()
 
         mock_session_inst.commit.assert_called_once()
 
         spider.recreate.assert_called_once_with(
-            [TestItem(name=f"test-{i}") for i in range(10)],
+            [Item(name=f"test-{i}") for i in range(10)],
             session=mock_session_inst,
         )
 
@@ -223,7 +223,7 @@ class TestBaseBilibiliSpider(TestCase):
         spider.process_item = mock.Mock()
 
         spider.recreate(
-            [TestItem(name=f"test-{i}") for i in range(10)], session=mock_session
+            [Item(name=f"test-{i}") for i in range(10)], session=mock_session
         )
 
         mock_sa.delete.assert_called_once_with(spider.database_model)
@@ -265,8 +265,8 @@ class TestPageSpider(TestCase):
             "https://api.bilibili.com/test",
             secrets.token_hex(8),
             secrets.token_hex(16),
-            TestTable,
-            TestItem,
+            Table,
+            Item,
             BilibiliVideoResponse,
             parent=spiders.BasePageSpider,
         )(
@@ -287,7 +287,7 @@ class TestPageSpider(TestCase):
         # FIXME: Mocking on `send_request` should accept parameters to return data by page number and page size
         self.spider.send_request = mock.Mock()
         self.spider.get_items_from_response = mock.Mock(
-            return_value=(TestItem(name=f"test-{i}") for i in range(300))
+            return_value=(Item(name=f"test-{i}") for i in range(300))
         )
 
         items = list(self.spider.get_items())
@@ -307,8 +307,8 @@ class TestSearchSpider(TestCase):
             "https://api.bilibili.com/test",
             secrets.token_hex(8),
             secrets.token_hex(16),
-            TestTable,
-            TestItem,
+            Table,
+            Item,
             BilibiliVideoResponse,
             parent=spiders.BaseSearchSpider,
         )(**self.search_params)  # type: ignore
@@ -342,7 +342,7 @@ class TestPopularSpider(TestCase):
             add_all=mock.Mock(),
         )
 
-        items = [TestItem(name=f"test-{i}") for i in range(10)]
+        items = [Item(name=f"test-{i}") for i in range(10)]
 
         self.spider.process_item = mock.Mock()
 
@@ -390,7 +390,7 @@ class TestWeeklySpider(TestCase):
 
         self.spider.process_item = mock.Mock()
 
-        items = [TestItem(name=f"test-{i}") for i in range(10)]
+        items = [Item(name=f"test-{i}") for i in range(10)]
 
         mock_session = mock.Mock(
             execute=mock.Mock(),

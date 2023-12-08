@@ -12,20 +12,20 @@ class _Base(DeclarativeBase):
     pass
 
 
-class TestTable(_Base):
+class Table(_Base):
     __tablename__ = "test"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
     name: MappedColumn[str]
 
 
-class TestItem(BaseModel):
+class Item(BaseModel):
     id: int
     name: str
 
 
-class TestResponse(BaseModel):
-    data: list[TestItem]
+class _Response(BaseModel):
+    data: list[Item]
     code: int
 
 
@@ -35,9 +35,9 @@ class TestBaseSpider(TestCase):
             api = "api"
             name = secrets.token_hex(8)
             alias = secrets.token_hex(16)
-            database_model = TestTable
-            item_model = TestItem
-            response_model = TestResponse
+            database_model = Table
+            item_model = Item
+            response_model = _Response
 
             def run(self):
                 pass
@@ -65,9 +65,9 @@ class TestBaseSpider(TestCase):
             class _TestSpider(Spider):
                 name = "test"
                 alias = "test_alias"
-                database_model = TestTable
-                item_model = TestItem
-                response_model = TestResponse
+                database_model = Table
+                item_model = Item
+                response_model = _Response
 
                 def run(self):
                     pass
@@ -75,9 +75,9 @@ class TestBaseSpider(TestCase):
             class _TestSpider_2(Spider):
                 name = "test"
                 alias = "test_alias_2"
-                database_model = TestTable
-                item_model = TestItem
-                response_model = TestResponse
+                database_model = Table
+                item_model = Item
+                response_model = _Response
 
                 def run(self):
                     pass
@@ -91,9 +91,9 @@ class TestBaseSpider(TestCase):
             class _TestSpider(Spider):
                 name = "test"
                 alias = "test_alias"
-                database_model = TestTable
-                item_model = TestItem
-                response_model = TestResponse
+                database_model = Table
+                item_model = Item
+                response_model = _Response
 
                 def run(self):
                     pass
@@ -101,9 +101,9 @@ class TestBaseSpider(TestCase):
             class _TestSpider_2(Spider):
                 name = "test_2"
                 alias = "test_alias"
-                database_model = TestTable
-                item_model = TestItem
-                response_model = TestResponse
+                database_model = Table
+                item_model = Item
+                response_model = _Response
 
                 def run(self):
                     pass
