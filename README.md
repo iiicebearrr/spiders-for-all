@@ -1,6 +1,6 @@
 # Spiders for all
 
-[![codecov](https://codecov.io/github/iiicebearrr/bilibili-spiders/graph/badge.svg?token=7OysUawUSl)](https://codecov.io/github/iiicebearrr/bilibili-spiders)
+[![codecov](https://codecov.io/github/iiicebearrr/spiders-for-all/graph/badge.svg?token=7OysUawUSl)](https://codecov.io/github/iiicebearrr/spiders-for-all)
 
 > 爬取、下载哔哩哔哩、小红书等网站数据、视频, 持续更新中...
 
