@@ -1,5 +1,6 @@
 import logging
 import os
+import multiprocessing
 from pathlib import Path
 from environs import Env
 
@@ -24,8 +25,10 @@ LOG_LEVEL = env.int("LOG_LEVEL", logging.DEBUG if DEBUG else logging.INFO)
 
 LOG_DIR = WORKDIR / "logs"
 
-DB_DIR = WORKDIR / "db"
+DB_DIR = WORKDIR / ".db"
 
 LOG_DIR.mkdir(exist_ok=True)
 
 DB_DIR.mkdir(exist_ok=True)
+
+CPU_COUNT = multiprocessing.cpu_count()
