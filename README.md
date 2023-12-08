@@ -8,6 +8,8 @@ https://github.com/iiicebearrr/spiders-for-all/assets/110714291/d28e67f5-8ff2-4e
 
 https://github.com/iiicebearrr/spiders-for-all/assets/110714291/4696cd19-0940-451c-9206-c03efe4a65a5
 
+https://github.com/iiicebearrr/spiders-for-all/assets/110714291/53079374-6c28-4b41-9b89-ed6ab5fb40a2
+
 ## Features
 
 - bilibli 
