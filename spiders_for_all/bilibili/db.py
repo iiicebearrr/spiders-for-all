@@ -5,7 +5,6 @@ from sqlalchemy import orm
 from sqlalchemy.ext.hybrid import hybrid_property
 from spiders_for_all.bilibili import models
 from spiders_for_all.conf import settings
-from spiders_for_all.utils.logger import default_logger as logger
 
 db_file = settings.DB_DIR / "bilibili.db"
 
@@ -238,7 +237,4 @@ def init_db():
 
 
 if _INIT_DB:
-    logger.info("Database not initialized. Initializing...")
     init_db()
-else:
-    logger.info(f"Using database: {db_file}")
