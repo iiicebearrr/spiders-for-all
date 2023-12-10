@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spiders-for-all"
-version = "0.2.1"
+version = "0.2.2"
 description = ""
 authors = ["icebear <iiiicebeaaaar@gmail.com>"]
 readme = "README.md"
