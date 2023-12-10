@@ -231,5 +231,40 @@ def download_videos(
     multiple_downloader.download()
 
 
+@cli.command()
+@click.option("--mid", "-m", help="mid of the author", required=True, type=int)
+@click.option(
+    "--save-dir",
+    "-s",
+    help="Path to save the downloaded videos",
+    type=Path,
+    required=True,
+)
+@click.option("--sess-data", "-ss", help="`SESSDATA`", required=False)
+@click.option("--max-workers", "-w", help="max workers", type=int, default=4)
+def download_by_author(
+    mid: int, save_dir: Path, sess_data: str | None = None, max_workers: int = 4
+):
+    with db.Session() as s:
+        bvids = [
+            row.bvid
+            for row in s.execute(
+                sa.select(db.BilibiliAuthorVideo.bvid).where(
+                    db.BilibiliAuthorVideo.mid == mid
+                )
+            )
+        ]
+
+    print(
+        f"[bold yellow]{len(bvids)} videos found to be downloaded for author {mid}..."
+    )
+
+    multiple_downloader = download.MultiThreadDownloader(
+        bvid_list=bvids, save_dir=save_dir, sess_data=sess_data, max_workers=max_workers
+    )
+
+    multiple_downloader.download()
+
+
 if __name__ == "__main__":
     cli()  # pragma: no cover
