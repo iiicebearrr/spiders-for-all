@@ -84,7 +84,7 @@ class Analysis:
                     model.stat,
                     model.title,
                     getattr(self.model, self.url_field),
-                )
+                )  # type: ignore
             }
             videos_data = dict(sorted(videos_data.items(), key=self._key))
             count = 0

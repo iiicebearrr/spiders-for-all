@@ -102,7 +102,7 @@ class AuthorVideoData(BilibiliVideoResponseData):
             "vlist": [],
         },
         validation_alias="list",
-    )
+    )  # type: ignore
 
 
 class VideoOwner(BaseModel):
