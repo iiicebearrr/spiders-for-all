@@ -702,7 +702,9 @@ class AuthorSpider(BasePageSpider):
         return total
 
     def get_items_from_response(
-        self, response: models.AuthorVideoResponse
+        self,
+        # TODO: fix mypy error
+        response: models.AuthorVideoResponse,  # type: ignore
     ) -> typing.Iterable[models.AuthorVideoItem]:
         response.raise_for_status()
         return response.data.list_data.items
