@@ -878,13 +878,17 @@ class TestMultiThreadDownloader(TestCase):
         ):
             return download.MultiThreadDownloader()
 
-    def get_downloader(self) -> download.MultiThreadDownloader:
-        with mock.patch.object(download.Path, "unlink"):
-            return download.MultiThreadDownloader(
-                bvid_list=["test_bv1", "test_bv2"],
-                save_dir=Path("test_save_dir"),
-                ffmpeg="ffmpeg",
-            )
+    @mock.patch.object(download.Downloader, "get_logfile")
+    @mock.patch.object(download.Path, "unlink")
+    @mock.patch.object(download.Path, "mkdir")
+    def get_downloader(
+        self, mock_mkdir: mock.Mock, mock_unlink: mock.Mock, mock_get_logfile: mock.Mock
+    ) -> download.MultiThreadDownloader:
+        return download.MultiThreadDownloader(
+            bvid_list=["test_bv1", "test_bv2"],
+            save_dir=Path("test_save_dir"),
+            ffmpeg="ffmpeg",
+        )
 
     def get_sub_downloader(self) -> download.Downloader:
         with mock.patch.object(download.Path, "unlink"):

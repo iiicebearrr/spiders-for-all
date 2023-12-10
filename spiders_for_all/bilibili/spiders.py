@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import typing
+import time
+import hashlib
+import random
+from typing import TypeAlias
 from functools import cached_property
 from itertools import batched
 
@@ -14,8 +18,14 @@ from spiders_for_all.bilibili import db
 from spiders_for_all.core.base import SPIDERS, Spider, get_all_spiders
 from spiders_for_all.utils import helper
 from spiders_for_all.utils.logger import get_logger
+from spiders_for_all.conf import settings
 
 Session = db.Session
+
+_BilibiliResponse: TypeAlias = (
+    models.BilibiliPlayResponse | models.BilibiliVideoResponse
+)
+_BilibiliResponseTyped: TypeAlias = typing.Type[_BilibiliResponse]
 
 logger = get_logger("bilibili")
 
@@ -35,9 +45,7 @@ def calculate_end_page(total: int, page_size: int, start_page_number: int) -> in
 
 
 class BaseBilibiliSpider(Spider):
-    response_model: typing.Type[
-        models.BilibiliVideoResponse | models.BilibiliPlayResponse
-    ]
+    response_model: _BilibiliResponseTyped
     logger = logger
     insert_batch = 100
 
@@ -90,7 +98,7 @@ class BaseBilibiliSpider(Spider):
         req_kwargs = self.get_request_args()
         self.debug(f"==> {method.upper()} {self.api}: {req_kwargs}")
         resp = requests.request(method, self.api, **req_kwargs)
-        self.debug(f"<== {method.upper()} {self.api}: {resp.status_code}")
+        self.debug(f"<== {method.upper()} {resp.request.url}: {resp.status_code}")
         resp.raise_for_status()
         json_data = resp.json()
         self.debug(f"<== Response json: {json_data}")
@@ -103,12 +111,13 @@ class BaseBilibiliSpider(Spider):
         return {"headers": helper.user_agent_headers()}
 
     def get_items_from_response(
-        self, response: models.BilibiliVideoResponse | models.BilibiliPlayResponse
+        self, response: _BilibiliResponse
     ) -> typing.Iterable[BaseModel]:
         """
         Get list data items from response model
         :param response:
         """
+        response.raise_for_status()
         return response.data.list_data
 
     def save_to_db(self, items: typing.Iterable[BaseModel]):
@@ -152,6 +161,7 @@ class BasePageSpider(BaseBilibiliSpider):
         total: int = default_total,
         page_size: int = default_page_size,
         page_number: int = default_page_number,
+        sleep_before_next_request: float | int | tuple[int, int] | None = None,
     ):
         """
         :param total: Total number of items to be crawled
@@ -165,6 +175,7 @@ class BasePageSpider(BaseBilibiliSpider):
         self.end_page_number = calculate_end_page(
             self.total, self.page_size, self.page_number
         )
+        self.sleep_before_next_request = sleep_before_next_request
 
     def get_items(self) -> typing.Iterable[BaseModel]:
         """
@@ -180,7 +191,21 @@ class BasePageSpider(BaseBilibiliSpider):
                 count += 1
                 if count >= self.total:
                     return
+            if self.sleep_before_next_request is not None:
+                time.sleep(random.randrange(2, 5))
             self.page_number += 1
+
+    def sleep(self):
+        match self.sleep_before_next_request:
+            case int():
+                time.sleep(float(self.sleep_before_next_request))
+            case float():
+                time.sleep(self.sleep_before_next_request)
+            case tuple():
+                start, end = self.sleep_before_next_request
+                time.sleep(random.randrange(start=start, stop=end))
+            case _:
+                raise TypeError(f"Invalid type: {type(self.sleep_before_next_request)}")
 
 
 class BaseSearchSpider(BaseBilibiliSpider):
@@ -194,7 +219,7 @@ class PopularSpider(BasePageSpider):
     name: str = "popular"
     alias = "综合热门"
     database_model = db.BilibiliPopularVideos
-    item_model = models.PopularVideoModel
+    item_model = models.PopularVideoItem
     response_model = models.PopularResponse
 
     def get_request_args(self) -> dict:
@@ -221,7 +246,7 @@ class WeeklySpider(BaseSearchSpider):
     api_list = "https://api.bilibili.com/x/web-interface/popular/series/list"
     name = "weekly"
     alias = "每周必看"
-    item_model = models.WeeklyVideoModel
+    item_model = models.WeeklyVideoItem
     response_model = models.WeeklyResponse
     database_model = db.BilibiliWeeklyVideos
 
@@ -268,7 +293,7 @@ class PreciousSpider(BasePageSpider):
     alias = "入站必刷"
     default_page_size = 100
 
-    item_model = models.PreciousVideoModel
+    item_model = models.PreciousVideoItem
     response_model = models.PreciousResponse
     database_model = db.BilibiliPreciousVideos
 
@@ -284,7 +309,7 @@ class RankAllSpider(BaseSearchSpider):
     name = "rank_all"
     alias = "全站"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankAll
     response_model = models.BilibiliVideoResponse
 
@@ -294,7 +319,7 @@ class RankDramaSpider(BaseSearchSpider):
     name = "rank_drama"
     alias = "番剧"
 
-    item_model = models.PlayModel
+    item_model = models.PlayItem
     database_model = db.BilibiliRankDrama
     response_model = models.RankDramaResponse
 
@@ -304,7 +329,7 @@ class RankCnCartoonSpider(BaseSearchSpider):
     name = "rank_cn_cartoon"
     alias = "国产动画"
 
-    item_model = models.PlayModel
+    item_model = models.PlayItem
     database_model = db.BilibiliRankCnCartoon
     response_model = models.BilibiliPlayResponse
 
@@ -314,7 +339,7 @@ class RankCnRelatedSpider(BaseSearchSpider):
     name = "rank_cn_related"
     alias = "国创相关"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankCnRelated
     response_model = models.BilibiliVideoResponse
 
@@ -324,7 +349,7 @@ class RankDocumentarySpider(BaseSearchSpider):
     name = "rank_documentary"
     alias = "纪录片"
 
-    item_model = models.PlayModel
+    item_model = models.PlayItem
     database_model = db.BilibiliRankDocumentary
     response_model = models.BilibiliPlayResponse
 
@@ -334,7 +359,7 @@ class RankCartoonSpider(BaseSearchSpider):
     name = "rank_cartoon"
     alias = "动画"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankCartoon
     response_model = models.BilibiliVideoResponse
 
@@ -344,7 +369,7 @@ class RankMusicSpider(BaseSearchSpider):
     name = "rank_music"
     alias = "音乐"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankMusic
     response_model = models.BilibiliVideoResponse
 
@@ -354,7 +379,7 @@ class RankDanceSpider(BaseSearchSpider):
     name = "rank_dance"
     alias = "舞蹈"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankDance
     response_model = models.BilibiliVideoResponse
 
@@ -364,7 +389,7 @@ class RankGameSpider(BaseSearchSpider):
     name = "rank_game"
     alias = "游戏"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankGame
     response_model = models.BilibiliVideoResponse
 
@@ -374,7 +399,7 @@ class RankTechSpider(BaseSearchSpider):
     name = "rank_tech"
     alias = "科技"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankTech
     response_model = models.BilibiliVideoResponse
 
@@ -384,7 +409,7 @@ class RankKnowledgeSpider(BaseSearchSpider):
     name = "rank_knowledge"
     alias = "知识"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankKnowledge
     response_model = models.BilibiliVideoResponse
 
@@ -394,7 +419,7 @@ class RankSportSpider(BaseSearchSpider):
     name = "rank_sport"
     alias = "运动"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankSport
     response_model = models.BilibiliVideoResponse
 
@@ -404,7 +429,7 @@ class RankCarSpider(BaseSearchSpider):
     name = "rank_car"
     alias = "汽车"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankCar
     response_model = models.BilibiliVideoResponse
 
@@ -414,7 +439,7 @@ class RankLifeSpider(BaseSearchSpider):
     name = "rank_life"
     alias = "生活"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankLife
     response_model = models.BilibiliVideoResponse
 
@@ -424,7 +449,7 @@ class RankFoodSpider(BaseSearchSpider):
     name = "rank_food"
     alias = "美食"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankFood
     response_model = models.BilibiliVideoResponse
 
@@ -434,7 +459,7 @@ class RankAnimalSpider(BaseSearchSpider):
     name = "rank_animal"
     alias = "动物圈"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankAnimal
     response_model = models.BilibiliVideoResponse
 
@@ -444,7 +469,7 @@ class RankAutoTuneSpider(BaseSearchSpider):
     name = "rank_auto_tune"
     alias = "鬼畜"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankAuto
     response_model = models.BilibiliVideoResponse
 
@@ -454,7 +479,7 @@ class RankFashionSpider(BaseSearchSpider):
     name = "rank_fashion"
     alias = "时尚"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankFashion
     response_model = models.BilibiliVideoResponse
 
@@ -464,7 +489,7 @@ class RankEntSpider(BaseSearchSpider):
     name = "rank_ent"
     alias = "娱乐"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankEnt
     response_model = models.BilibiliVideoResponse
 
@@ -474,7 +499,7 @@ class RankFilmSpider(BaseSearchSpider):
     name = "rank_film"
     alias = "影视"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankFilm
     response_model = models.BilibiliVideoResponse
 
@@ -484,7 +509,7 @@ class RankMovieSpider(BaseSearchSpider):
     name = "rank_movie"
     alias = "电影"
 
-    item_model = models.PlayModel
+    item_model = models.PlayItem
     database_model = db.BilibiliRankMovie
     response_model = models.BilibiliPlayResponse
 
@@ -494,7 +519,7 @@ class RankTvSpider(BaseSearchSpider):
     name = "rank_tv"
     alias = "电视剧"
 
-    item_model = models.PlayModel
+    item_model = models.PlayItem
     database_model = db.BilibiliRankTv
     response_model = models.BilibiliPlayResponse
 
@@ -504,7 +529,7 @@ class RankVarietySpider(BaseSearchSpider):
     name = "rank_variety"
     alias = "综艺"
 
-    item_model = models.PlayModel
+    item_model = models.PlayItem
     database_model = db.BilibiliRankVariety
     response_model = models.BilibiliPlayResponse
 
@@ -514,7 +539,7 @@ class RankOriginSpider(BaseSearchSpider):
     name = "rank_origin"
     alias = "原创"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankOrigin
     response_model = models.BilibiliVideoResponse
 
@@ -524,9 +549,195 @@ class RankNewSpider(BaseSearchSpider):
     name = "rank_new"
     alias = "新人"
 
-    item_model = models.VideoModel
+    item_model = models.VideoItem
     database_model = db.BilibiliRankNew
     response_model = models.BilibiliVideoResponse
+
+
+class AuthorSpider(BasePageSpider):
+    api = "https://api.bilibili.com/x/space/wbi/arc/search"
+    api_get_nav_num = "https://api.bilibili.com/x/space/navnum"
+    api_get_nav = "https://api.bilibili.com/x/web-interface/nav"
+    name = "author"
+    alias = "up主"
+
+    response_model = models.AuthorVideoResponse
+    database_model = db.BilibiliAuthorVideo
+    item_model = models.AuthorVideoItem
+
+    encrypt_string_fmt = "dm_cover_img_str={dm_cover_img_str}&dm_img_list=%5B%5D&dm_img_str={dm_img_str}&keyword=&mid={mid}&order=pubdate&order_avoided=true&platform=web&pn={pn}&ps={ps}&tid=&web_location="
+
+    def __init__(
+        self,
+        mid: int,
+        total: int | None = None,
+        sess_data: str | None = None,
+        page_size: int = 30,
+        page_number: int = 1,
+    ):
+        self.mid = mid
+
+        self.sess_data = sess_data
+
+        self.wbi_info = self.get_wbi_info()
+
+        self.key = self.get_mixin_key(self.wbi_info.img_key + self.wbi_info.sub_key)
+
+        total = (
+            self.get_total(self.mid)
+            if total is None
+            else min(total, self.get_total(self.mid))
+        )
+
+        super().__init__(
+            total=total,
+            page_size=page_size,
+            page_number=page_number,
+            sleep_before_next_request=(5, 10),
+        )
+
+    def get_wbi_info(self) -> models.WbiInfo:
+        resp = requests.get(
+            self.api_get_nav,
+            headers=helper.user_agent_headers(),
+        )
+
+        resp.raise_for_status()
+
+        wbi_img = resp.json().get("data", {}).get("wbi_img", None)
+
+        if wbi_img is None:
+            raise ValueError("wbi_img not found")
+
+        return models.WbiInfo(**wbi_img)
+
+    def get_mixin_key(self, e: str) -> str:
+        indices = [
+            46,
+            47,
+            18,
+            2,
+            53,
+            8,
+            23,
+            32,
+            15,
+            50,
+            10,
+            31,
+            58,
+            3,
+            45,
+            35,
+            27,
+            43,
+            5,
+            49,
+            33,
+            9,
+            42,
+            19,
+            29,
+            28,
+            14,
+            39,
+            12,
+            38,
+            41,
+            13,
+            37,
+            48,
+            7,
+            16,
+            24,
+            55,
+            40,
+            61,
+            26,
+            17,
+            0,
+            1,
+            60,
+            51,
+            30,
+            4,
+            22,
+            25,
+            54,
+            21,
+            56,
+            59,
+            6,
+            63,
+            57,
+            62,
+            11,
+            36,
+            20,
+            34,
+            44,
+            52,
+        ]
+        result = []
+        for r in indices:
+            if r < len(e):
+                result.append(e[r])
+        return "".join(result)[:32]
+
+    def get_total(self, mid: int) -> int:
+        resp = requests.get(
+            self.api_get_nav_num,
+            params={"mid": mid},
+            headers=helper.user_agent_headers(),
+        )
+        resp.raise_for_status()
+        total = resp.json().get("data", {}).get("video", None)
+        if total is None:
+            raise ValueError(f"mid {mid} info not found")
+        return total
+
+    def get_items_from_response(
+        self, response: models.AuthorVideoResponse
+    ) -> typing.Iterable[models.AuthorVideoItem]:
+        response.raise_for_status()
+        return response.data.list_data.items
+
+    def get_wrid(self, params: str) -> str:
+        md5 = hashlib.md5()
+
+        md5.update(
+            (params + self.key).encode(),
+        )
+
+        return md5.hexdigest()
+
+    def get_request_args(self) -> dict:
+        wts = round(time.time())
+
+        params = self.encrypt_string_fmt.format(
+            mid=self.mid,
+            ps=self.page_size,
+            pn=self.page_number,
+            dm_img_str=settings.BILIBILI_PARAM_DM_IMG_STR,
+            dm_cover_img_str=settings.BILIBILI_PARAM_DM_COVER_IMG_STR,
+        )
+
+        wrid = self.get_wrid(params + f"&wts={wts}")
+
+        params = "&".join([params, f"w_rid={wrid}", f"wts={wts}"])
+
+        kwargs = super().get_request_args()
+
+        # NOTE: Not sure if this will work
+        kwargs["headers"]["accept-language"] = "en,zh-CN;q=0.9,zh;q=0.8"
+
+        if self.sess_data is not None:
+            kwargs["cookies"] = {"SESSDATA": self.sess_data}
+
+        return {
+            **kwargs,
+            "params": params,
+        }
 
 
 def run_spider(name: str, *args, **kwargs):

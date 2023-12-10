@@ -1,6 +1,7 @@
 import json
 from typing import Type, TypeAlias
 from functools import cached_property
+from enum import Enum, auto
 
 from rich import print
 from rich import table as rich_table
@@ -10,11 +11,20 @@ from spiders_for_all.bilibili import db
 
 ViewCount: TypeAlias = int
 SortData: TypeAlias = tuple[int, tuple[ViewCount, Row]]  # row_id, (view_count, row)
-Model: TypeAlias = Type[db.BaseBilibiliVideos | db.BaseBilibiliPlay]
+VideoOrPlay: TypeAlias = db.BaseBilibiliVideos | db.BaseBilibiliPlay
+VideoOrPlayClass: TypeAlias = Type[VideoOrPlay]
+TableModelClass: TypeAlias = Type[db.Base]
+
+N: int = 10
+
+
+class ShowType(Enum):
+    COMMON = auto()
+    VIDEO_OR_PLAY = auto()
 
 
 class Analysis:
-    def __init__(self, model: Model, n: int = 10) -> None:
+    def __init__(self, model: TableModelClass, n: int = N) -> None:
         """_summary_
 
         Args:
@@ -24,17 +34,33 @@ class Analysis:
         Raises:
             TypeError: _description_
         """
-        if not issubclass(model, (db.BaseBilibiliVideos, db.BaseBilibiliPlay)):
-            raise TypeError(f"{model} is not a valid video model")  # pragma: no cover
 
         self.model = model
         self.n = n
-        self.table = rich_table.Table(
-            "rank",
-            "title",
-            "view",
-            "link",
-            title=f"Top {n} videos",
+        if not issubclass(model, (db.BaseBilibiliVideos, db.BaseBilibiliPlay)):
+            self.table = self.get_table(self.get_model_columns(model))
+            self.show_type = ShowType.COMMON
+        else:
+            self.table = rich_table.Table(
+                "rank",
+                "title",
+                "view",
+                "link",
+                title=f"Top {n} videos",
+                show_header=True,
+                header_style="bold magenta",
+                show_lines=True,
+            )
+            self.show_type = ShowType.VIDEO_OR_PLAY
+
+    @staticmethod
+    def get_model_columns(model: Type[db.Base]) -> list[str]:
+        return model.__table__.columns.keys()
+
+    def get_table(self, columns: list[str]) -> rich_table.Table:
+        return rich_table.Table(
+            *columns,
+            title=f"Top {self.n} videos",
             show_header=True,
             header_style="bold magenta",
             show_lines=True,
@@ -49,14 +75,14 @@ class Analysis:
             return "short_link_v2"
         return "url"
 
-    def show(self):
+    def add_videos_or_plays_row(self, model: VideoOrPlayClass):
         with db.Session() as s:
             videos_data: dict[int, tuple[ViewCount, Row]] = {
                 item.id: (json.loads(item.stat)["view"], item)
                 for item in s.query(
-                    self.model.id,
-                    self.model.stat,
-                    self.model.title,
+                    model.id,
+                    model.stat,
+                    model.title,
                     getattr(self.model, self.url_field),
                 )
             }
@@ -72,5 +98,18 @@ class Analysis:
                 )
 
                 count += 1
+
+    def add_common_row(self, model: TableModelClass):
+        with db.Session() as s:
+            for i, row in enumerate(s.query(model)):
+                if i >= self.n:
+                    break
+                self.table.add_row(*[str(value) for value in row.tuple()])  # type: ignore
+
+    def show(self):
+        if self.show_type == ShowType.VIDEO_OR_PLAY:
+            self.add_videos_or_plays_row(self.model)  # type: ignore
+        else:
+            self.add_common_row(self.model)
 
         print(self.table)

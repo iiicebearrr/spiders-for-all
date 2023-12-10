@@ -8,7 +8,7 @@ from sqlalchemy.orm import mapped_column, MappedColumn
 from pydantic import BaseModel
 
 from spiders_for_all.bilibili.db import Base as BaseTable
-from spiders_for_all.bilibili.models import BilibiliVideoResponse, VideoModel
+from spiders_for_all.bilibili.models import BilibiliVideoResponse, VideoItem
 from tests._utils import mock_logger
 
 
@@ -71,7 +71,7 @@ class TestBaseBilibiliSpider(TestCase):
         self.name = secrets.token_hex(8)
         self.alias = secrets.token_hex(16)
         self.database_model = Table
-        self.item_model = VideoModel
+        self.item_model = VideoItem
         self.response_model = BilibiliVideoResponse
 
         self.spider = get_test_spider(
@@ -498,3 +498,57 @@ class TestRankSpider(TestCase):
             spiders.RankMovieSpider,
         ):
             pass
+
+
+class TestAuthorSpider(TestCase):
+    def setUp(self) -> None:
+        self.mid = 1
+
+    @mock.patch.object(spiders.AuthorSpider, "get_total")
+    @mock.patch.object(spiders.AuthorSpider, "get_mixin_key")
+    @mock.patch.object(spiders.AuthorSpider, "get_wbi_info")
+    def test_init(
+        self,
+        mock_get_wbi_info: mock.Mock,
+        mock_get_key: mock.Mock,
+        mock_get_total: mock.Mock,
+    ):
+        mock_get_wbi_info.return_value = spiders.models.WbiInfo(
+            img_url="http://test.com/test.jpg",  # type: ignore
+            sub_url="http://test.com/test.jpg",  # type: ignore
+        )
+
+        mock_get_key.return_value = "test-key"
+
+        mock_get_total.return_value = 100
+
+        spiders.AuthorSpider(mid=self.mid)
+
+        mock_get_wbi_info.assert_called_once()
+
+        mock_get_key.assert_called_once_with(
+            mock_get_wbi_info.return_value.img_key
+            + mock_get_wbi_info.return_value.sub_key
+        )
+
+        mock_get_total.assert_called_once_with(self.mid)
+
+    @mock.patch.object(spiders.AuthorSpider, "get_total")
+    @mock.patch.object(spiders.AuthorSpider, "get_mixin_key")
+    @mock.patch.object(spiders.AuthorSpider, "get_wbi_info")
+    def test_get_request_args(
+        self,
+        mock_get_wbi_info: mock.Mock,
+        mock_get_key: mock.Mock,
+        mock_get_total: mock.Mock,
+    ):
+        mock_get_key.return_value = "test-key"
+
+        spider = spiders.AuthorSpider(mid=self.mid)
+
+        request_args = spider.get_request_args()
+
+        self.assertRegex(
+            request_args["params"],
+            "dm_cover_img_str=.*&dm_img_list=%5B%5D&dm_img_str=.*&keyword=&mid=.*&order=pubdate&order_avoided=true&platform=web&pn=.*&ps=.*&tid=&web_location=&w_rid=.*&wts=.*",
+        )

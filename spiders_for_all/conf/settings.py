@@ -32,3 +32,14 @@ LOG_DIR.mkdir(exist_ok=True)
 DB_DIR.mkdir(exist_ok=True)
 
 CPU_COUNT = multiprocessing.cpu_count()
+
+
+# NOTE: dm_img_str and dm_cover_img_str seem to be some kind of browser fingerprint, and they seem to be static values
+# NOTE: Reference: https://github.com/SocialSisterYi/bilibili-API-collect/issues/868
+BILIBILI_PARAM_DM_IMG_STR = env.str(
+    "BILIBILI_PARAM_DM_IMG_STR", "V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ"
+)
+BILIBILI_PARAM_DM_COVER_IMG_STR = env.str(
+    "BILIBILI_PARAM_DM_COVER_IMG_STR",
+    "QU5HTEUgKEludGVsIEluYy4sIEludGVsKFIpIElyaXMoVE0pIFBsdXMgR3JhcGhpY3MgNjU1LCBPcGVuR0wgNC4xKUdvb2dsZSBJbmMuIChJbnRlbCBJbmMuKQ",
+)

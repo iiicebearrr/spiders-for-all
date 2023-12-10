@@ -26,7 +26,7 @@ class TestCli(TestCase):
 
     def test_list_spiders(self):
         result = self.runner.invoke(cli, ["list-spiders"])  # type: ignore
-        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 0, result.exc_info)
 
     @mock.patch("spiders_for_all.bilibili.analysis.Analysis")
     def test_data_analysis(self, mock_analysis: mock.Mock):
