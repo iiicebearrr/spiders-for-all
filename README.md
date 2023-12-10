@@ -139,9 +139,10 @@ python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl -d {SESS
 
 #### 爬取某作者的主页视频
 
-*注意: bilibili对主页数据爬取有风控策略, 一次不建议爬取太多视频, 会触发风控*
-*实际测试大概一次可以爬取200-300条, 建议分批次爬取*
-*且因为风控策略, 不建议在爬取阶段就指定`-s`, `-d`来直接下载视频, 建议分两步先收集bvid再下载视频*
+*注意: 
+
+- bilibili对主页数据爬取有风控策略, 一次不建议爬取太多视频, 会触发风控
+- 实际测试大概在**200-300条视频**左右时就会**触发风控**, 因此如果超过这个数量, 建议按照以下步骤分两步爬取
 
 1. 收集主页视频bvid信息
 
@@ -149,15 +150,17 @@ python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl -d {SESS
 python -m spiders_for_all run-spider -n author -p mid {mid} -p total {total} -p sess_data {SESS_DATA} -p page_size {page_size} -p page_number {page_number}
 ```
 
-**参数说明:**
+**参数说明(打勾的是必传参数):**
 
-- `mid`: 作者的mid[required]
-- `total`: 要爬取的数量, 会取min(作者主页视频总数, 传入的total), 建议一次<200, 不传会使用作者视频总数[optional]
-- `sess_data`: 传入SESS_DATA可能一定程度上降低风控策略的触发, 但是不保证一定不会触发(待更有说服力的测试验证)[optional]
-- `page_number`: 从第几页开始爬取, 默认为1, 分批次爬取时修改该参数[default: 1]
-- `page_size`: 每页的爬取数量[default: 30]
+- [x] `mid`: 作者的mid 
+- [ ] `total`: 要爬取的数量, 会取min(作者主页视频总数, 传入的total), 建议一次<200, 不传会使用作者视频总数
+- [ ] `sess_data`: 传入SESS_DATA可能一定程度上降低风控策略的触发, 但是不保证一定不会触发(待更有说服力的测试验证)
+- [ ] `page_number`: 从第几页开始爬取, 默认为1, 分批次爬取时修改该参数
+- [ ] `page_size`: 每页的爬取数量
+- [ ] `-s`: 爬取bvid后直接下载, 数量多时不建议添加该参数, 会触发风控, 先收集完所有需要下载的bvid再按照第2步进行下载
+- [ ] `-d`: 指定后从数据库查询当前爬虫存储的bvid下载视频, 不进行爬取操作
 
-2. 下载视频(后续会优化这个步骤)
+1. 下载视频(后续会优化这个步骤)
 
 ```sh
 python -m spiders_for_all download-by-author -m {mid} -s {save_dir} -d {sess_data}

@@ -4,7 +4,9 @@ WORKDIR /app
 
 RUN sed -i 's/deb.debian.org/mirrors.huaweicloud.com/g' /etc/apt/sources.list
 
-RUN apt-get update && apt-get install -y ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg vim fish
+
+RUN chsh -s /usr/bin/fish
 
 COPY requirements.txt /tmp/requirements.txt
 
