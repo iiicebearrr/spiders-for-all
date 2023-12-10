@@ -139,6 +139,8 @@ class BaseBilibiliSpider(Spider):
         :param session: sqlalchemy session object
         :return:
         """
+
+        # TODO: Make truncate and upsert as options
         session.execute(sa.delete(self.database_model))
         session.add_all(map(self.process_item, items))
 
@@ -184,9 +186,12 @@ class BasePageSpider(BaseBilibiliSpider):
         """
         count = 0
         while self.page_number <= self.end_page_number:
-            # TODO: change page size instead of calculating `count`
+            # TODO: change page size dynamically instead of calculating `count`
             response = self.send_request()
-            for item in self.get_items_from_response(response):
+            items = self.get_items_from_response(response)
+            if not items:
+                break
+            for item in items:
                 yield item
                 count += 1
                 if count >= self.total:
@@ -738,6 +743,15 @@ class AuthorSpider(BasePageSpider):
             **kwargs,
             "params": params,
         }
+
+    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
+        items = list(items)
+        session.execute(
+            sa.delete(self.database_model).where(
+                self.database_model.bvid.in_([item.bvid for item in items]),  # type: ignore
+            )
+        )
+        session.add_all([self.process_item(item) for item in items])
 
 
 def run_spider(name: str, *args, **kwargs):
