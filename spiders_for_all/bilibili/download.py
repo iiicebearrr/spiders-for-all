@@ -657,6 +657,7 @@ class MultiThreadDownloader:
                 from_cli=False,
                 ffmpeg=self.ffmpeg,
                 disable_terminal_log=True,
+                exit_on_error=True,
             )
             for bvid in self.bvid_list
         ]
