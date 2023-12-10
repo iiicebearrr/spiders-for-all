@@ -1,4 +1,10 @@
-# Spiders for all
+<p align="center">
+<img src="docs/logo.png" height="200px"/>
+</p>
+
+
+
+
 
 [![codecov](https://codecov.io/github/iiicebearrr/spiders-for-all/graph/badge.svg?token=7OysUawUSl)](https://codecov.io/github/iiicebearrr/spiders-for-all)
 
@@ -23,7 +29,7 @@ https://github.com/iiicebearrr/spiders-for-all/assets/110714291/53079374-6c28-4b
         - [x] 【入站必刷】栏目视频爬取、下载
         - [x] 【排行榜】各分栏目视频爬取、下载
         - [x]  爬取数据可视化
-        - [ ]  爬取某作者的所有视频
+        - [x]  爬取某作者的所有视频
 
 - 小红书(Coming soon)
 
@@ -31,24 +37,24 @@ https://github.com/iiicebearrr/spiders-for-all/assets/110714291/53079374-6c28-4b
 
 ## 目录
 
-- [Spiders for all](#spiders-for-all)
-  - [Features](#features)
-  - [目录](#目录)
-  - [安装](#安装)
-  - [使用方法(bilibili)](#使用方法bilibili)
-    - [命令行](#命令行)
-      - [列出内置的爬虫](#列出内置的爬虫)
-      - [运行一个爬虫](#运行一个爬虫)
-      - [分析爬取的数据](#分析爬取的数据)
-      - [通过bvid下载视频](#通过bvid下载视频)
-      - [多线程下载视频](#多线程下载视频)
-      - [指定SESS\_DATA下载高清视频](#指定sess_data下载高清视频)
-      - [查看帮助](#查看帮助)
-    - [代码](#代码)
-      - [运行爬虫](#运行爬虫)
-      - [分析爬取的数据](#分析爬取的数据-1)
-      - [通过bvid下载视频](#通过bvid下载视频-1)
-  - [内置爬虫](#内置爬虫)
+- [Features](#features)
+- [目录](#目录)
+- [安装](#安装)
+- [使用方法(bilibili)](#使用方法bilibili)
+  - [命令行](#命令行)
+    - [列出内置的爬虫](#列出内置的爬虫)
+    - [运行一个爬虫](#运行一个爬虫)
+    - [分析爬取的数据](#分析爬取的数据)
+    - [通过bvid下载视频](#通过bvid下载视频)
+    - [多线程下载视频](#多线程下载视频)
+    - [指定SESS\_DATA下载高清视频](#指定sess_data下载高清视频)
+    - [爬取某作者的主页视频](#爬取某作者的主页视频)
+    - [查看帮助](#查看帮助)
+  - [代码](#代码)
+    - [运行爬虫](#运行爬虫)
+    - [分析爬取的数据](#分析爬取的数据-1)
+    - [通过bvid下载视频](#通过bvid下载视频-1)
+- [内置爬虫](#内置爬虫)
 
 ## 安装
 
@@ -88,7 +94,8 @@ python -m spiders_for_all data-analysis -n precious
 
 #### 通过bvid下载视频
 
-*注意: 在下载视频前, 你需要确保你的主机上已安装了`ffmpeg`, 如果是使用docker方式启动, 则可以忽略这一步*
+*注意: 在下载视频前, 你需要确保你的主机上已安装了`ffmpeg`, 并确保可以直接命令行调用, 如果是使用docker方式启动, 则可以忽略这一步*
+
 
 ```sh
 python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl
@@ -129,6 +136,50 @@ python -m spiders_for_all download-videos -b bvid_list.txt -s ./videos_dl
 ```sh
 python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl -d {SESS_DATA}
 ```
+
+#### 爬取某作者的主页视频
+
+*注意: bilibili对主页数据爬取有风控策略, 一次不建议爬取太多视频, 会触发风控*
+*实际测试大概一次可以爬取200-300条, 建议分批次爬取*
+*且因为风控策略, 不建议在爬取阶段就指定`-s`, `-d`来直接下载视频, 建议分两步先收集bvid再下载视频*
+
+1. 收集主页视频bvid信息
+
+```sh
+python -m spiders_for_all run-spider -n author -p mid {mid} -p total {total} -p sess_data {SESS_DATA} -p page_size {page_size} -p page_number {page_number}
+```
+
+**参数说明:**
+
+- `mid`: 作者的mid[required]
+- `total`: 要爬取的数量, 会取min(作者主页视频总数, 传入的total), 建议一次<200, 不传会使用作者视频总数[optional]
+- `sess_data`: 传入SESS_DATA可能一定程度上降低风控策略的触发, 但是不保证一定不会触发(待更有说服力的测试验证)[optional]
+- `page_number`: 从第几页开始爬取, 默认为1, 分批次爬取时修改该参数[default: 1]
+- `page_size`: 每页的爬取数量[default: 30]
+
+2. 下载视频(后续会优化这个步骤)
+
+```sh
+python -m spiders_for_all download-by-author -m {mid} -s {save_dir} -d {sess_data}
+```
+
+**分批次爬取完整示例:**
+
+
+```sh
+# 爬取主页视频bvid, 一次爬取30 * 7 = 210条
+python -m spiders_for_all run-spider -n author -p mid 作者的mid -p total 210 -p page_size 30 -p page_number 1
+
+python -m spiders_for_all run-spider -n author -p mid 作者的mid -p total 210 -p page_size 30 -p page_number 8
+
+python -m spiders_for_all run-spider -n author -p mid 作者的mid -p total 210 -p page_size 30 -p page_number 16
+
+...
+
+# 爬取完bvid后再下载视频
+python -m spiders_for_all download-by-author -m {mid} -s {save_dir} -d {sess_data}
+```
+
 
 #### 查看帮助
 
@@ -171,7 +222,8 @@ if __name__ == '__main__':
         save_dir='./videos_dl',
         sess_data="YOUR_SESS_DATA_HERE"
     )
-    downloader.download()
+    with downloader:
+        downloader.download()
 ```
 
 ## 内置爬虫
