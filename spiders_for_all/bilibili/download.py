@@ -46,6 +46,7 @@ API_PREFIX = "https://www.bilibili.com/video/"
 # Regex to find playinfo in <script>window.__playinfo__=</script>
 RGX_FIND_PLAYINFO = re.compile(r"<script>window\.__playinfo__=(.*?)</script>")
 RGX_FIND_TITLE = re.compile(r"<title>(.*?)</title>")
+RGX_CHECK_FILENAME = re.compile(r"[\\/:*?\"<>|]")
 
 HIGHEST_QUALITY = 0
 
@@ -326,6 +327,9 @@ class Downloader:
     @cached_property
     def filepath(self) -> Path:
         _filename = self._filename or self.get_title()
+
+        # Replace invalid characters with _
+        _filename = RGX_CHECK_FILENAME.sub("_", _filename)
 
         _filepath = self.save_dir / _filename
 
