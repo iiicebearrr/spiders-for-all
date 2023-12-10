@@ -890,13 +890,17 @@ class TestMultiThreadDownloader(TestCase):
             ffmpeg="ffmpeg",
         )
 
-    def get_sub_downloader(self) -> download.Downloader:
-        with mock.patch.object(download.Path, "unlink"):
-            return download.Downloader(
-                bvid="test_bv1",
-                save_dir=Path("test_save_dir"),
-                ffmpeg="ffmpeg",
-            )
+    @mock.patch.object(download.Path, "touch")
+    @mock.patch.object(download.Path, "mkdir")
+    @mock.patch.object(download.Path, "unlink")
+    def get_sub_downloader(
+        self, mock_unlink: mock.Mock, mock_mkdir: mock.Mock, mock_touch: mock.Mock
+    ) -> download.Downloader:
+        return download.Downloader(
+            bvid="test_bv1",
+            save_dir=Path("test_save_dir"),
+            ffmpeg="ffmpeg",
+        )
 
     def test_read_bvid_list_from_str(self):
         downloader = self.downloader_without_init
@@ -993,6 +997,7 @@ class TestMultiThreadDownloader(TestCase):
 
         mock_handle_tasks.assert_called_once()
 
+    @mock.patch.object(download.Console, "save_text")
     @mock.patch.object(download.Downloader, "log")
     @mock.patch.object(download.logger, "info")
     @mock.patch.object(download.Path, "rename")
@@ -1007,6 +1012,7 @@ class TestMultiThreadDownloader(TestCase):
         mock_rename: mock.Mock,
         mock_log: mock.Mock,
         mock_sub_log: mock.Mock,
+        mock_save_text: mock.Mock,
     ):
         task_id, overall_task_id = TaskID(0), TaskID(1)
         mock_filepath.return_value = Path("test_filepath")
@@ -1015,12 +1021,14 @@ class TestMultiThreadDownloader(TestCase):
         mock_progress.remove_task.return_value = None
         mock_progress.add_task.return_value = task_id
 
-        sub_downloader = self.get_sub_downloader()
+        sub_downloader = self.get_sub_downloader()  # type: ignore
         self.downloader._worker_update_progress(
             downloader=sub_downloader,
             progress=mock_progress,
             overall_task_id=overall_task_id,
         )
+
+        mock_save_text.assert_called_once()
 
         self.assertEqual(self.downloader.success_count, 1)
 
