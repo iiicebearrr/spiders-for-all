@@ -19,12 +19,33 @@ class Base(orm.DeclarativeBase):
     pass
 
 
-class BaseBilibiliVideos(Base):
+class BaseTable(Base):
     __abstract__ = True
 
     id: orm.Mapped[int] = orm.mapped_column(
         primary_key=True, comment="auto increment id"
     )
+
+    create_at: orm.Mapped[datetime] = orm.mapped_column(
+        default=datetime.now, comment="create time of a video"
+    )
+
+    update_at: orm.Mapped[datetime] = orm.mapped_column(
+        default=datetime.now, comment="update time of a video", onupdate=datetime.now
+    )
+
+    def tuple(self):
+        return tuple(
+            [
+                getattr(self, column.key)
+                for column in sa.inspect(self).mapper.column_attrs
+            ]
+        )
+
+
+class BaseBilibiliVideos(BaseTable):
+    __abstract__ = True
+
     title: orm.Mapped[str] = orm.mapped_column(comment="title of a video")
     tname: orm.Mapped[str] = orm.mapped_column(comment="tag name of a video")
 
@@ -39,14 +60,6 @@ class BaseBilibiliVideos(Base):
     )
     stat: orm.Mapped[str] = orm.mapped_column(comment="stat of a video")
     tid: orm.Mapped[int] = orm.mapped_column(comment="tid of a video")
-
-    create_at: orm.Mapped[datetime] = orm.mapped_column(
-        default=datetime.now, comment="create time of a video"
-    )
-
-    update_at: orm.Mapped[datetime] = orm.mapped_column(
-        default=datetime.now, comment="update time of a video", onupdate=datetime.now
-    )
 
     @hybrid_property
     def owner_info(self) -> models.VideoOwner:
@@ -228,6 +241,20 @@ class BilibiliRankOrigin(BaseBilibiliVideos):
 class BilibiliRankNew(BaseBilibiliVideos):
     __tablename__ = "t_bilibili_rank_new"
     __doc__ = "bilibili rank new information"
+
+
+class BilibiliAuthorVideo(BaseTable):
+    __tablename__ = "t_bilibili_author_video"
+    __doc__ = "bilibili author video information"
+
+    title: orm.Mapped[str] = orm.mapped_column(comment="title of a video")
+    aid: orm.Mapped[int] = orm.mapped_column(comment="avid of a video", unique=True)
+    bvid: orm.Mapped[str] = orm.mapped_column(comment="bvid of a video", unique=True)
+    mid: orm.Mapped[int] = orm.mapped_column(comment="mid of a video")
+    comment: orm.Mapped[int] = orm.mapped_column(comment="comment of a video")
+    description: orm.Mapped[str] = orm.mapped_column(comment="description of a video")
+    is_pay: orm.Mapped[int] = orm.mapped_column(comment="is_pay of a video")
+    length: orm.Mapped[int] = orm.mapped_column(comment="length of a video")
 
 
 def init_db():

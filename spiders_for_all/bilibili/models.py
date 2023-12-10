@@ -4,7 +4,7 @@ import typing
 from enum import Enum
 from functools import cached_property
 
-from pydantic import BaseModel, Field, field_serializer, conlist
+from pydantic import BaseModel, Field, field_serializer, conlist, HttpUrl
 
 
 class BilibiliResponse(BaseModel):
@@ -12,15 +12,33 @@ class BilibiliResponse(BaseModel):
     data: typing.Any
     message: str | None = None
 
+    def raise_for_status(self) -> None:
+        if self.code != 0:
+            raise ValueError(
+                f"Response failed with code: {self.code}. Message: {self.message}"
+            )
+
 
 class BilibiliVideoResponse(BilibiliResponse):
-    """Base response model of bilibili api"""
+    """Base response model of bilibili api with video data return"""
 
     data: BilibiliVideoResponseData
 
 
 class BilibiliPlayResponse(BilibiliResponse):
+    """Base response model of bilibili api with play data return"""
+
     data: BilibiliPlayResponseData
+
+
+class BilibiliVideoResponseData(BaseModel):
+    """Base data model of bilibili api"""
+
+    list_data: typing.Sequence[VideoItem] = Field([], validation_alias="list")
+
+
+class BilibiliPlayResponseData(BaseModel):
+    list_data: typing.Sequence[PlayItem] = Field([], validation_alias="list")
 
 
 class RankDramaResponse(BilibiliPlayResponse):
@@ -43,21 +61,15 @@ class PreciousResponse(BilibiliVideoResponse):
     data: PreciousData
 
 
-class BilibiliVideoResponseData(BaseModel):
-    """Base data model of bilibili api"""
-
-    list_data: typing.Sequence[VideoModel] = Field([], validation_alias="list")
-
-
-class BilibiliPlayResponseData(BaseModel):
-    list_data: typing.Sequence[PlayModel] = Field([], validation_alias="list")
+class AuthorVideoResponse(BilibiliVideoResponse):
+    data: AuthorVideoData
 
 
 class PopularData(BilibiliVideoResponseData):
     """Data model of bilibili popular api"""
 
     no_more: bool
-    list_data: list[PopularVideoModel] = Field([], validation_alias="list")
+    list_data: list[PopularVideoItem] = Field([], validation_alias="list")
 
 
 class WeeklyData(BilibiliVideoResponseData):
@@ -65,19 +77,32 @@ class WeeklyData(BilibiliVideoResponseData):
 
     config: dict[str, typing.Any]
     reminder: str
-    list_data: list[WeeklyVideoModel] = Field([], validation_alias="list")
+    list_data: list[WeeklyVideoItem] = Field([], validation_alias="list")
 
 
 class PreciousData(BilibiliVideoResponseData):
-    list_data: list[PreciousVideoModel] = Field([], validation_alias="list")
+    list_data: list[PreciousVideoItem] = Field([], validation_alias="list")
     explain: str
     media_id: int
     title: str
 
 
 class RankDramaData(BilibiliPlayResponseData):
-    list_data: list[PlayModel] = Field([], validation_alias="list")
+    list_data: list[PlayItem] = Field([], validation_alias="list")
     note: str
+
+
+class _AuthorVideoDataList(BaseModel):
+    items: list[AuthorVideoItem] = Field([], validation_alias="vlist")
+
+
+class AuthorVideoData(BilibiliVideoResponseData):
+    list_data: _AuthorVideoDataList = Field(
+        {
+            "vlist": [],
+        },
+        validation_alias="list",
+    )
 
 
 class VideoOwner(BaseModel):
@@ -107,7 +132,7 @@ class PlayStat(BaseModel):
     view: int
 
 
-class VideoModel(BaseModel):
+class VideoItem(BaseModel):
     aid: int
     bvid: str
     cid: int
@@ -125,7 +150,7 @@ class VideoModel(BaseModel):
         return value.model_dump_json() if isinstance(value, BaseModel) else value
 
 
-class PlayModel(BaseModel):
+class PlayItem(BaseModel):
     rank: int
     rating: str
     stat: PlayStat
@@ -137,16 +162,27 @@ class PlayModel(BaseModel):
         return value.model_dump_json() if isinstance(value, BaseModel) else value
 
 
-class PopularVideoModel(VideoModel):
+class PopularVideoItem(VideoItem):
     pass
 
 
-class WeeklyVideoModel(VideoModel):
+class WeeklyVideoItem(VideoItem):
     pass
 
 
-class PreciousVideoModel(VideoModel):
+class PreciousVideoItem(VideoItem):
     achievement: str
+
+
+class AuthorVideoItem(BaseModel):
+    title: str
+    aid: int
+    bvid: str
+    mid: int
+    comment: int
+    description: str | None = None
+    is_pay: int
+    length: str
 
 
 class VideoSource(Enum):
@@ -192,3 +228,16 @@ class PlayAudio(_PlayMediaInfo):
 class PlayInfoDash(BaseModel):
     video: conlist(PlayVideo, min_length=1)  # type: ignore
     audio: conlist(PlayAudio, min_length=1)  # type: ignore
+
+
+class WbiInfo(BaseModel):
+    img_url: HttpUrl
+    sub_url: HttpUrl
+
+    @cached_property
+    def img_key(self) -> str:
+        return self.img_url.path.split("/")[-1].split(".")[0]  # type: ignore
+
+    @cached_property
+    def sub_key(self) -> str:
+        return self.sub_url.path.split("/")[-1].split(".")[0]  # type: ignore
