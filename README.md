@@ -105,7 +105,7 @@ python -m spiders_for_all download-video -b BV1hx411w7MG -s ./videos_dl
 
 *传入多个bvid:*
 ```sh
-python -m spiders_for_all download-videos -b BVID1 BVID2 -s ./videos_dl
+python -m spiders_for_all download-videos -b "BVID1 BVID2" -s ./videos_dl
 ```
 
 *或传入一个包含bvid列表的文件, 回车换行:*
