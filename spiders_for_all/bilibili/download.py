@@ -214,7 +214,7 @@ class DownloadVideoTask(DownloadMediaTask):
         self.quality_map = quality_map
 
     def __str__(self):
-        return f"Download video <{self.quality_map[self.media.quality]}>"
+        return f"Download video <{self.quality_map[self.media.quality]}>"  # type: ignore
 
 
 class DownloadAudioTask(DownloadMediaTask):
@@ -304,8 +304,8 @@ class Downloader:
                 level=logging.INFO,
             )
 
-        if self.console.record:
-            self.console.save_text(str(self.log_file))
+        if self.console.record:  # type: ignore
+            self.console.save_text(str(self.log_file))  # type: ignore
 
         return exc_type is None
 
@@ -366,9 +366,10 @@ class Downloader:
         if self.console is None:
             logger.log(level, msg, exc_info=traceback is not None)
         else:
-            self.console.log(f"[{logging.getLevelName(level)}] {msg}")
-            if traceback:
-                self.console.log(f"Traceback: \n{''.join(format_tb(traceback))}")
+            if level >= settings.LOG_LEVEL:
+                self.console.log(f"[{logging.getLevelName(level)}] {msg}")
+                if traceback:
+                    self.console.log(f"Traceback: \n{''.join(format_tb(traceback))}")
 
     def get_play_info(self) -> models.PlayInfoData:
         playinfo = RGX_FIND_PLAYINFO.search(self.html_content)
