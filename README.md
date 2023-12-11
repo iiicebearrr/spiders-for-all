@@ -59,7 +59,7 @@ https://github.com/iiicebearrr/spiders-for-all/assets/110714291/53079374-6c28-4b
 ## 安装
 
 ```sh
-pip install spiders-for-all # python 版本 >= 3.10
+pip install spiders-for-all # python 版本 >= 3.12
 ```
 
 ## 使用方法(bilibili)
