@@ -591,7 +591,7 @@ class AuthorSpider(BasePageSpider):
         total = (
             self.get_total(self.mid)
             if total is None
-            else min(total, self.get_total(self.mid))
+            else min(int(total), self.get_total(self.mid))
         )
 
         super().__init__(
