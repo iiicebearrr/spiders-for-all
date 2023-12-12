@@ -7,13 +7,13 @@ from rich import print
 from rich import table as rich_table
 from sqlalchemy import Row
 
-from spiders_for_all.bilibili import db
+from spiders_for_all.spiders.bilibili import db
 
 ViewCount: TypeAlias = int
 SortData: TypeAlias = tuple[int, tuple[ViewCount, Row]]  # row_id, (view_count, row)
 VideoOrPlay: TypeAlias = db.BaseBilibiliVideos | db.BaseBilibiliPlay
 VideoOrPlayClass: TypeAlias = Type[VideoOrPlay]
-TableModelClass: TypeAlias = Type[db.Base]
+TableModelClass: TypeAlias = Type[db.db.Base]
 
 N: int = 10
 
@@ -54,7 +54,7 @@ class Analysis:
             self.show_type = ShowType.VIDEO_OR_PLAY
 
     @staticmethod
-    def get_model_columns(model: Type[db.Base]) -> list[str]:
+    def get_model_columns(model: TableModelClass) -> list[str]:
         return model.__table__.columns.keys()
 
     def get_table(self, columns: list[str]) -> rich_table.Table:

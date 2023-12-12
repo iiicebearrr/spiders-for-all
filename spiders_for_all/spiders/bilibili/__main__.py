@@ -4,9 +4,7 @@ import click
 import sqlalchemy as sa
 from rich import print
 
-from spiders_for_all.bilibili import spiders, download
-from spiders_for_all.bilibili import analysis
-from spiders_for_all.bilibili import db
+from spiders_for_all.spiders.bilibili import spiders, download, analysis, db, const
 from spiders_for_all.core.base import SPIDERS
 
 _ = spiders  # to call init_subclass
@@ -50,7 +48,7 @@ def run_spider(
     """Run a spider by name"""
     if name not in SPIDERS:
         raise ValueError(f"Spider {name} not found")  # pragma: no cover
-    spider = SPIDERS[name](**{k: v for k, v in params})
+    spider = SPIDERS[name](**{k: v for k, v in params})  # type: ignore
 
     if not download_only:
         print(f"[bold light_green]Running spider: {spider.string()}")
@@ -135,7 +133,7 @@ def data_analysis(name: str, top_n: int):
     help="Quality of the video to download. Defaults to HIGHEST_QUALITY.",
     required=False,
     type=int,
-    default=download.HIGHEST_QUALITY,
+    default=download.const.HIGHEST_QUALITY,
 )
 @click.option(
     "--codecs",
@@ -158,7 +156,7 @@ def download_video(
     filename: str | None = None,
     remove_temp_dir: bool = True,
     sess_data: str | None = None,
-    quality: int = download.HIGHEST_QUALITY,
+    quality: int = const.HIGHEST_QUALITY,
     codecs: str | None = None,
     ffmpeg_params: list[str] | None = None,
 ):
@@ -254,6 +252,10 @@ def download_by_author(
                 )
             )
         ]
+
+    if not bvids:
+        print(f"[bold yellow]No videos found for author {mid}...")
+        return
 
     print(
         f"[bold yellow]{len(bvids)} videos found to be downloaded for author {mid}..."

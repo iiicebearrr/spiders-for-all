@@ -1,46 +1,14 @@
-from datetime import datetime
 import json
-import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext.hybrid import hybrid_property
-from spiders_for_all.bilibili import models
-from spiders_for_all.conf import settings
+from spiders_for_all.spiders.bilibili import models
+from spiders_for_all.core import db
 
-db_file = settings.DB_DIR / "bilibili.db"
+SessionMaker = db.SessionMaker("bilibili.db")
 
-engine = sa.engine.create_engine(f"sqlite:///{str(db_file)}", echo=settings.DEBUG)
+Session = SessionMaker.session
 
-Session = orm.sessionmaker(bind=engine)
-
-_INIT_DB = not db_file.exists()
-
-
-class Base(orm.DeclarativeBase):
-    pass
-
-
-class BaseTable(Base):
-    __abstract__ = True
-
-    id: orm.Mapped[int] = orm.mapped_column(
-        primary_key=True, comment="auto increment id"
-    )
-
-    create_at: orm.Mapped[datetime] = orm.mapped_column(
-        default=datetime.now, comment="create time of a video"
-    )
-
-    update_at: orm.Mapped[datetime] = orm.mapped_column(
-        default=datetime.now, comment="update time of a video", onupdate=datetime.now
-    )
-
-    def tuple(self):
-        return tuple(
-            [
-                getattr(self, column.key)
-                for column in sa.inspect(self).mapper.column_attrs
-            ]
-        )
+BaseTable = db.BaseTable
 
 
 class BaseBilibiliVideos(BaseTable):
@@ -74,25 +42,14 @@ class BaseBilibiliVideos(BaseTable):
         return self.short_link_v2
 
 
-class BaseBilibiliPlay(Base):
+class BaseBilibiliPlay(BaseTable):
     __abstract__ = True
 
-    id: orm.Mapped[int] = orm.mapped_column(
-        comment="auto increment id", primary_key=True
-    )
     rank: orm.Mapped[int] = orm.mapped_column(comment="rank of a video")
     rating: orm.Mapped[str] = orm.mapped_column(comment="rating of a video")
     stat: orm.Mapped[str] = orm.mapped_column(comment="stat of a video")
     title: orm.Mapped[str] = orm.mapped_column(comment="title of a video")
     url: orm.Mapped[str] = orm.mapped_column(comment="url of a video")
-
-    create_at: orm.Mapped[datetime] = orm.mapped_column(
-        default=datetime.now, comment="create time of a video"
-    )
-
-    update_at: orm.Mapped[datetime] = orm.mapped_column(
-        default=datetime.now, comment="update time of a video", onupdate=datetime.now
-    )
 
 
 class BilibiliPopularVideos(BaseBilibiliVideos):
@@ -255,13 +212,3 @@ class BilibiliAuthorVideo(BaseTable):
     description: orm.Mapped[str] = orm.mapped_column(comment="description of a video")
     is_pay: orm.Mapped[int] = orm.mapped_column(comment="is_pay of a video")
     length: orm.Mapped[int] = orm.mapped_column(comment="length of a video")
-
-
-def init_db():
-    """init database"""
-    Base.metadata.drop_all(engine)  # pragma: no cover
-    Base.metadata.create_all(engine)  # pragma: no cover
-
-
-if _INIT_DB:
-    init_db()

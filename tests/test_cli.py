@@ -1,8 +1,8 @@
 from unittest import TestCase, mock
 from click.testing import CliRunner
 
-import spiders_for_all.bilibili.__main__ as bilibili_main
-from spiders_for_all.bilibili.__main__ import cli
+import spiders_for_all.spiders.bilibili.__main__ as bilibili_main
+from spiders_for_all.spiders.bilibili.__main__ import cli
 from pathlib import Path
 
 
@@ -28,7 +28,7 @@ class TestCli(TestCase):
         result = self.runner.invoke(cli, ["list-spiders"])  # type: ignore
         self.assertEqual(result.exit_code, 0, result.exc_info)
 
-    @mock.patch("spiders_for_all.bilibili.analysis.Analysis")
+    @mock.patch("spiders_for_all.spiders.bilibili.analysis.Analysis")
     def test_data_analysis(self, mock_analysis: mock.Mock):
         mock_spider_cls = mock.Mock(string=mock.Mock())
         mock_spider_cls.database_model = mock.Mock()
@@ -46,7 +46,7 @@ class TestCli(TestCase):
             mock_analysis.assert_called_once_with(mock_spider_cls.database_model, 10)
             mock_analysis_instance.show.assert_called_once()
 
-    @mock.patch("spiders_for_all.bilibili.download.Downloader")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.Downloader")
     def test_download(self, mock_downloader: mock.Mock):
         mock_downloader.return_value = mock.Mock(
             __enter__=mock.Mock(
@@ -69,7 +69,7 @@ class TestCli(TestCase):
 
         mock_downloader.return_value.download.assert_called_once()
 
-    @mock.patch("spiders_for_all.bilibili.download.MultiThreadDownloader")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.MultiThreadDownloader")
     def test_multiple_download(self, mock_downloader: mock.Mock):
         mock_downloader_inst = mock.Mock(download=mock.Mock())
 

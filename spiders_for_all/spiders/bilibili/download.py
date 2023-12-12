@@ -28,8 +28,8 @@ from concurrent import futures
 from rich.console import Console
 import requests
 
-from spiders_for_all.bilibili import models
-from spiders_for_all.utils.helper import user_agent_headers, rm_tree
+from spiders_for_all.spiders.bilibili import models, patterns, const
+from spiders_for_all.utils.helper import user_agent_headers, rm_tree, correct_filename
 from spiders_for_all.utils.logger import default_logger as logger
 from spiders_for_all.conf import settings
 
@@ -41,16 +41,6 @@ VideoPath: TypeAlias = Path
 AudioPath: TypeAlias = Path
 BvidList: TypeAlias = str | list[str] | Path | list[Path] | BinaryIO
 
-API_PREFIX = "https://www.bilibili.com/video/"
-
-# Regex to find playinfo in <script>window.__playinfo__=</script>
-RGX_FIND_PLAYINFO = re.compile(r"<script>window\.__playinfo__=(.*?)</script>")
-RGX_FIND_TITLE = re.compile(r"<title>(.*?)</title>")
-RGX_CHECK_FILENAME = re.compile(r"[\\/:*?\"<>|]")
-
-HIGHEST_QUALITY = 0
-
-CHUNK_SIZE = 1024 * 1024
 
 NOT_SET = object()
 
@@ -161,7 +151,7 @@ class DownloadMediaTask(BaseTask):
         media: Media,
         save_dir: Path | str,
         *args,
-        chunk_size: int = CHUNK_SIZE,
+        chunk_size: int = const.CHUNK_SIZE,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -209,7 +199,7 @@ class DownloadVideoTask(DownloadMediaTask):
         media: models.PlayVideo,
         save_dir: Path | str,
         quality_map: dict[int, str],
-        chunk_size: int = CHUNK_SIZE,
+        chunk_size: int = const.CHUNK_SIZE,
     ):
         super().__init__(media, save_dir, chunk_size=chunk_size)
         self.quality_map = quality_map
@@ -235,7 +225,7 @@ class Downloader:
         filename: str | None = None,
         remove_temp_dir: bool = True,
         sess_data: str | None = None,
-        quality: int = HIGHEST_QUALITY,
+        quality: int = const.HIGHEST_QUALITY,
         codecs: str | None = None,
         ffmpeg_params: list[str] | None = None,
         process_func: Callable[[VideoPath, AudioPath], None] | None = None,
@@ -329,7 +319,7 @@ class Downloader:
         _filename = self._filename or self.get_title()
 
         # Replace invalid characters with _
-        _filename = RGX_CHECK_FILENAME.sub("_", _filename)
+        _filename = correct_filename(_filename)
 
         _filepath = self.save_dir / _filename
 
@@ -376,7 +366,7 @@ class Downloader:
                     self.console.log(f"Traceback: \n{''.join(format_tb(traceback))}")
 
     def get_play_info(self) -> models.PlayInfoData:
-        playinfo = RGX_FIND_PLAYINFO.search(self.html_content)
+        playinfo = patterns.RGX_FIND_PLAYINFO.search(self.html_content)
         if playinfo is None:
             raise ValueError(f"Playinfo not found from {self.html_content}")
         playinfo = playinfo.group(1)  # type: ignore
@@ -452,7 +442,7 @@ class Downloader:
             )
 
     def filter_quality(self, videos: Videos) -> Videos:
-        if self.quality is HIGHEST_QUALITY:
+        if self.quality is const.HIGHEST_QUALITY:
             videos = videos[:1]
         else:
             videos = list(filter(lambda video: video.quality == self.quality, videos))
@@ -637,7 +627,7 @@ class MultiThreadDownloader:
         save_dir: str | Path,
         remove_temp_dir: bool = True,
         sess_data: str | None = None,
-        quality: int = HIGHEST_QUALITY,
+        quality: int = const.HIGHEST_QUALITY,
         codecs: str | None = None,
         ffmpeg_params: list[str] | None = None,
         process_func: Callable[[VideoPath, AudioPath], None] | None = None,

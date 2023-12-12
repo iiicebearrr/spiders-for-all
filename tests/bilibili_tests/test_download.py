@@ -2,7 +2,7 @@ import logging
 from typing import Any
 from unittest import TestCase, mock
 from pathlib import Path
-from spiders_for_all.bilibili import download, models
+from spiders_for_all.spiders.bilibili import download, models, const
 from spiders_for_all.conf import settings
 from rich.progress import TaskID, Progress
 from rich.console import Console
@@ -57,7 +57,7 @@ class TestTask(TestCase):
                 self.value = None
 
         def fn_set_value(instance: _T, value: int):
-            instance.value = value
+            instance.value = value  # type: ignore
 
         mock_fn = mock.Mock()
 
@@ -80,9 +80,11 @@ class TestTask(TestCase):
             ]
         )
 
-    @mock.patch("spiders_for_all.bilibili.download.open", new_callable=mock.mock_open)
-    @mock.patch("spiders_for_all.bilibili.download.Path.unlink")
-    @mock.patch("spiders_for_all.bilibili.download.requests.get")
+    @mock.patch(
+        "spiders_for_all.spiders.bilibili.download.open", new_callable=mock.mock_open
+    )
+    @mock.patch("spiders_for_all.spiders.bilibili.download.Path.unlink")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.requests.get")
     def test_download_media_task(
         self,
         mock_get: mock.Mock,
@@ -244,7 +246,7 @@ class TestDownloader(TestCase):
         self.assertEqual(downloader.save_dir, self.save_dir)
         self.assertEqual(downloader.remove_temp_dir, True)
         self.assertEqual(downloader.sess_data, None)
-        self.assertEqual(downloader.quality, download.HIGHEST_QUALITY)
+        self.assertEqual(downloader.quality, const.HIGHEST_QUALITY)
         self.assertEqual(downloader.codecs, None)
         self.assertEqual(downloader.ffmpeg_params, None)
         self.assertEqual(downloader.process_func, None)
@@ -259,7 +261,9 @@ class TestDownloader(TestCase):
         self.assertEqual(downloader.exit_on_error, False)
         self.assertEqual(self.mock_mkdir.call_count, 2)
 
-        with mock.patch("spiders_for_all.bilibili.download.get_ffmpeg_executable") as m:
+        with mock.patch(
+            "spiders_for_all.spiders.bilibili.download.get_ffmpeg_executable"
+        ) as m:
             m.return_value = "test_ffmpeg"
 
             downloader, _ = self.get_test_downloader(ffmpeg=None)
@@ -299,10 +303,12 @@ class TestDownloader(TestCase):
     def test_context_manager_with_exception(
         self, mock_log: mock.Mock, mock_save_text: mock.Mock
     ):
+        downloader = download.Downloader(
+            bvid="test-bv-id", save_dir=Path("."), ffmpeg="ffmpeg"
+        )
+
         with self.assertRaisesRegex(ValueError, "test error"):
-            with download.Downloader(
-                bvid="test-bv-id", save_dir=Path("."), ffmpeg="ffmpeg"
-            ) as downloader:
+            with downloader:
                 self.assertEqual(downloader.state, download.DownloadState.STARTED)
 
                 raise ValueError("test error")
@@ -325,14 +331,16 @@ class TestDownloader(TestCase):
 
             self.assertEqual(downloader.disable_terminal_log, True)
 
-            self.assertFalse(downloader.console.record)
+            self.assertFalse(downloader.console.record)  # type: ignore
 
         self.assertEqual(downloader.state, download.DownloadState.FINISHED)
 
         mock_log.assert_called_once()
 
-    @mock.patch("spiders_for_all.bilibili.download.open", new_callable=mock.mock_open)
-    @mock.patch("spiders_for_all.bilibili.download.Console")
+    @mock.patch(
+        "spiders_for_all.spiders.bilibili.download.open", new_callable=mock.mock_open
+    )
+    @mock.patch("spiders_for_all.spiders.bilibili.download.Console")
     def test_console(self, mock_console: mock.Mock, mock_open: mock.Mock):
         self.downloader.get_console()
 
@@ -688,7 +696,7 @@ class TestDownloader(TestCase):
         mock_iter_tasks.return_value = [1, 2, 3]
 
         self.assertEqual(
-            list(self.downloader.download(yield_tasks=True)),
+            list(self.downloader.download(yield_tasks=True)),  # type: ignore
             [1, 2, 3],
         )
         mock_iter_tasks.assert_called_once()
@@ -738,7 +746,7 @@ class TestDownloader(TestCase):
 
     @mock.patch.object(download.Downloader, "handle_tasks")
     @mock.patch.object(download.futures.ThreadPoolExecutor, "submit")
-    @mock.patch("spiders_for_all.bilibili.download.Progress")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.Progress")
     def test_download_with_progress(
         self,
         mock_progress: mock.Mock,
@@ -758,7 +766,7 @@ class TestDownloader(TestCase):
 
         tasks = [1, 2, 3, 4, 5]
 
-        self.downloader.downloading_tasks = tasks
+        self.downloader.downloading_tasks = tasks  # type: ignore
 
         self.downloader.download_with_progress()
 
@@ -783,7 +791,7 @@ class TestDownloader(TestCase):
     ):
         tasks = [1, 2, 3, 4, 5]
 
-        self.downloader.downloading_tasks = tasks
+        self.downloader.downloading_tasks = tasks  # type: ignore
 
         self.downloader.download_directly()
 
@@ -797,7 +805,9 @@ class TestDownloader(TestCase):
     @mock.patch.object(download.Path, "unlink", return_value=None)
     @mock.patch.object(download.Downloader, "log")
     @mock.patch.object(download.Path, "read_bytes")
-    @mock.patch("spiders_for_all.bilibili.download.open", new_callable=mock.mock_open)
+    @mock.patch(
+        "spiders_for_all.spiders.bilibili.download.open", new_callable=mock.mock_open
+    )
     def test_concat_audio_video(
         self,
         mock_open: mock.Mock,
@@ -839,7 +849,7 @@ class TestDownloader(TestCase):
 
         mock_as_completed.return_value = tasks.keys()
 
-        self.downloader.handle_tasks(tasks)
+        self.downloader.handle_tasks(tasks)  # type: ignore
 
         mock_as_completed.assert_called_once_with(tasks)
 
@@ -847,7 +857,7 @@ class TestDownloader(TestCase):
             f.result.assert_called_once()
 
     @mock.patch.object(download.Downloader, "log")
-    @mock.patch("spiders_for_all.bilibili.download.exit")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.exit")
     @mock.patch.object(download.futures, "as_completed")
     def test_handle_tasks_failed(
         self, mock_as_completed: mock.Mock, mock_exit: mock.Mock, mock_log: mock.Mock
@@ -858,7 +868,7 @@ class TestDownloader(TestCase):
         mock_as_completed.return_value = tasks.keys()
 
         self.downloader.exit_on_error = True
-        self.downloader.handle_tasks(tasks)
+        self.downloader.handle_tasks(tasks)  # type: ignore
 
         mock_as_completed.assert_called_once_with(tasks)
 
@@ -870,13 +880,13 @@ class TestDownloader(TestCase):
 class TestMultiThreadDownloader(TestCase):
     def setUp(self):
         self.downloader_without_init = self.get_downloader_without_init()
-        self.downloader = self.get_downloader()
+        self.downloader = self.get_downloader()  # type: ignore
 
     def get_downloader_without_init(self) -> download.MultiThreadDownloader:
         with mock.patch.object(
             download.MultiThreadDownloader, "__init__", return_value=None
         ):
-            return download.MultiThreadDownloader()
+            return download.MultiThreadDownloader()  # type: ignore
 
     @mock.patch.object(download.Downloader, "get_logfile")
     @mock.patch.object(download.Path, "unlink")
@@ -981,7 +991,7 @@ class TestMultiThreadDownloader(TestCase):
         with self.assertRaisesRegex(
             TypeError, "bvid_list should be str, Path, BinaryIO or list, got"
         ):
-            downloader.read_bvid_list(1)
+            downloader.read_bvid_list(1)  # type: ignore
 
     @mock.patch.object(download.MultiThreadDownloader, "handle_tasks")
     @mock.patch.object(download.futures.ThreadPoolExecutor, "submit")
@@ -1003,7 +1013,7 @@ class TestMultiThreadDownloader(TestCase):
     @mock.patch.object(download.Path, "rename")
     @mock.patch.object(download.Downloader, "filepath", new_callable=mock.PropertyMock)
     @mock.patch.object(download.LinerTask, "start")
-    @mock.patch("spiders_for_all.bilibili.download.Progress")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.Progress")
     def test__worker_update_progress(
         self,
         mock_progress: mock.Mock,
@@ -1048,7 +1058,7 @@ class TestMultiThreadDownloader(TestCase):
     @mock.patch.object(download.logger, "info")
     @mock.patch.object(download.MultiThreadDownloader, "handle_tasks")
     @mock.patch.object(download.futures.ThreadPoolExecutor, "submit")
-    @mock.patch("spiders_for_all.bilibili.download.Progress")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.Progress")
     def test_download_with_progress(
         self,
         mock_progress: mock.Mock,
@@ -1110,7 +1120,7 @@ class TestMultiThreadDownloader(TestCase):
 
     @mock.patch.object(download.futures, "as_completed")
     def test_handle_tasks(self, mock_as_completed: mock.Mock):
-        tasks = {get_mock_future(): self.get_sub_downloader() for _ in range(10)}
+        tasks = {get_mock_future(): self.get_sub_downloader() for _ in range(10)}  # type: ignore
 
         mock_as_completed.return_value = tasks.keys()
 
@@ -1122,14 +1132,14 @@ class TestMultiThreadDownloader(TestCase):
             f.result.assert_called_once()
 
     @mock.patch.object(download.logger, "error")
-    @mock.patch("spiders_for_all.bilibili.download.exit")
+    @mock.patch("spiders_for_all.spiders.bilibili.download.exit")
     @mock.patch.object(download.futures, "as_completed")
     def test_handle_tasks_failed(
         self, mock_as_completed: mock.Mock, mock_exit: mock.Mock, mock_log: mock.Mock
     ):
         mock_future = get_mock_future()
         mock_future.result.side_effect = ValueError("test error")
-        tasks = {mock_future: self.get_sub_downloader()}
+        tasks = {mock_future: self.get_sub_downloader()}  # type: ignore
         mock_as_completed.return_value = tasks.keys()
 
         self.downloader.exit_on_error = True
