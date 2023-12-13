@@ -7,13 +7,13 @@ from rich import print
 from rich import table as rich_table
 from sqlalchemy import Row
 
-from spiders_for_all.spiders.bilibili import db
+from spiders_for_all.spiders.bilibili import db, schema
 
 ViewCount: TypeAlias = int
 SortData: TypeAlias = tuple[int, tuple[ViewCount, Row]]  # row_id, (view_count, row)
-VideoOrPlay: TypeAlias = db.BaseBilibiliVideos | db.BaseBilibiliPlay
+VideoOrPlay: TypeAlias = schema.BaseBilibiliVideos | schema.BaseBilibiliPlay
 VideoOrPlayClass: TypeAlias = Type[VideoOrPlay]
-TableModelClass: TypeAlias = Type[db.db.Base]
+TableModelClass: TypeAlias = Type[schema.BaseTable]
 
 N: int = 10
 
@@ -37,7 +37,7 @@ class Analysis:
 
         self.model = model
         self.n = n
-        if not issubclass(model, (db.BaseBilibiliVideos, db.BaseBilibiliPlay)):
+        if not issubclass(model, (schema.BaseBilibiliVideos, schema.BaseBilibiliPlay)):
             self.table = self.get_table(self.get_model_columns(model))
             self.show_type = ShowType.COMMON
         else:
@@ -71,7 +71,7 @@ class Analysis:
 
     @cached_property
     def url_field(self) -> str:
-        if issubclass(self.model, db.BaseBilibiliVideos):
+        if issubclass(self.model, schema.BaseBilibiliVideos):
             return "short_link_v2"
         return "url"
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 
 import typing
 import time
@@ -15,7 +16,10 @@ from sqlalchemy import orm
 
 from spiders_for_all.spiders.bilibili import models
 from spiders_for_all.spiders.bilibili import db
-from spiders_for_all.core.base import SPIDERS, Spider, get_all_spiders
+from spiders_for_all.spiders.bilibili import const
+from spiders_for_all.spiders.bilibili import schema
+from spiders_for_all.core.base import SPIDERS, DbActionOnInit, Spider, get_all_spiders
+from spiders_for_all.utils.decorator import retry
 from spiders_for_all.utils import helper
 from spiders_for_all.utils.logger import get_logger
 from spiders_for_all.conf import settings
@@ -48,6 +52,24 @@ class BaseBilibiliSpider(Spider):
     response_model: _BilibiliResponseTyped
     logger = logger
     insert_batch = 100
+    session_maker = db.SessionManager
+
+    def __init__(
+        self,
+        *args,
+        logger: logging.Logger | None = None,
+        db_action_on_init: DbActionOnInit = DbActionOnInit.DO_NOTHING,
+        max_retries: int = const.REQUEST_MAX_RETRIES,
+        retry_interval: int = const.REQUEST_RETRY_INTERVAL,
+        retry_step: int = const.REQUEST_RETRY_STEP,
+        **kwargs,
+    ):
+        self.max_retries = int(max_retries)
+        self.retry_interval = int(retry_interval)
+        self.retry_step = int(retry_step)
+        super().__init__(
+            *args, logger=logger, db_action_on_init=db_action_on_init, **kwargs
+        )
 
     def before(self):
         """
@@ -82,27 +104,33 @@ class BaseBilibiliSpider(Spider):
             }
         )
 
-    def send_request(
-        self, method: str = "GET"
-    ) -> models.BilibiliVideoResponse | models.BilibiliPlayResponse:
-        """
-        Send request to api
-        :param method: http method
-        :return: A `pydantic.BaseModel` object
-        """
-        if not issubclass(self.response_model, models.BilibiliResponse):
-            raise TypeError(
-                f"{self.response_model} is not a valid response model, "
-                f"should be a subclass of {models.BilibiliResponse}"
-            )
-        req_kwargs = self.get_request_args()
-        self.debug(f"==> {method.upper()} {self.api}: {req_kwargs}")
-        resp = requests.request(method, self.api, **req_kwargs)
-        self.debug(f"<== {method.upper()} {resp.request.url}: {resp.status_code}")
-        resp.raise_for_status()
-        json_data = resp.json()
-        self.debug(f"<== Response json: {json_data}")
-        return self.response_model(**json_data)
+    def send_request(self, method: str = "GET") -> _BilibiliResponse:
+        @retry(
+            max_retries=self.max_retries,
+            interval=self.retry_interval,
+            step=self.retry_step,
+        )
+        def _send_request(method: str = "GET") -> _BilibiliResponse:
+            """
+            Send request to api
+            :param method: http method
+            :return: A `pydantic.BaseModel` object
+            """
+            if not issubclass(self.response_model, models.BilibiliResponse):
+                raise TypeError(
+                    f"{self.response_model} is not a valid response model, "
+                    f"should be a subclass of {models.BilibiliResponse}"
+                )
+            req_kwargs = self.get_request_args()
+            self.debug(f"==> {method.upper()} {self.api}: {req_kwargs}")
+            resp = requests.request(method, self.api, **req_kwargs)
+            self.debug(f"<== {method.upper()} {resp.request.url}: {resp.status_code}")
+            resp.raise_for_status()
+            json_data = resp.json()
+            self.debug(f"<== Response json: {json_data}")
+            return self.response_model(**json_data)
+
+        return _send_request(method)
 
     def get_request_args(self) -> dict:
         """
@@ -223,7 +251,7 @@ class PopularSpider(BasePageSpider):
     api: str = "https://api.bilibili.com/x/web-interface/popular"
     name: str = "popular"
     alias = "综合热门"
-    database_model = db.BilibiliPopularVideos
+    database_model = schema.BilibiliPopularVideos
     item_model = models.PopularVideoItem
     response_model = models.PopularResponse
 
@@ -253,7 +281,7 @@ class WeeklySpider(BaseSearchSpider):
     alias = "每周必看"
     item_model = models.WeeklyVideoItem
     response_model = models.WeeklyResponse
-    database_model = db.BilibiliWeeklyVideos
+    database_model = schema.BilibiliWeeklyVideos
 
     search_key: str = "week"
 
@@ -300,7 +328,7 @@ class PreciousSpider(BasePageSpider):
 
     item_model = models.PreciousVideoItem
     response_model = models.PreciousResponse
-    database_model = db.BilibiliPreciousVideos
+    database_model = schema.BilibiliPreciousVideos
 
     def get_request_args(self) -> dict:
         return {
@@ -315,7 +343,7 @@ class RankAllSpider(BaseSearchSpider):
     alias = "全站"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankAll
+    database_model = schema.BilibiliRankAll
     response_model = models.BilibiliVideoResponse
 
 
@@ -325,7 +353,7 @@ class RankDramaSpider(BaseSearchSpider):
     alias = "番剧"
 
     item_model = models.PlayItem
-    database_model = db.BilibiliRankDrama
+    database_model = schema.BilibiliRankDrama
     response_model = models.RankDramaResponse
 
 
@@ -335,7 +363,7 @@ class RankCnCartoonSpider(BaseSearchSpider):
     alias = "国产动画"
 
     item_model = models.PlayItem
-    database_model = db.BilibiliRankCnCartoon
+    database_model = schema.BilibiliRankCnCartoon
     response_model = models.BilibiliPlayResponse
 
 
@@ -345,7 +373,7 @@ class RankCnRelatedSpider(BaseSearchSpider):
     alias = "国创相关"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankCnRelated
+    database_model = schema.BilibiliRankCnRelated
     response_model = models.BilibiliVideoResponse
 
 
@@ -355,7 +383,7 @@ class RankDocumentarySpider(BaseSearchSpider):
     alias = "纪录片"
 
     item_model = models.PlayItem
-    database_model = db.BilibiliRankDocumentary
+    database_model = schema.BilibiliRankDocumentary
     response_model = models.BilibiliPlayResponse
 
 
@@ -365,7 +393,7 @@ class RankCartoonSpider(BaseSearchSpider):
     alias = "动画"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankCartoon
+    database_model = schema.BilibiliRankCartoon
     response_model = models.BilibiliVideoResponse
 
 
@@ -375,7 +403,7 @@ class RankMusicSpider(BaseSearchSpider):
     alias = "音乐"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankMusic
+    database_model = schema.BilibiliRankMusic
     response_model = models.BilibiliVideoResponse
 
 
@@ -385,7 +413,7 @@ class RankDanceSpider(BaseSearchSpider):
     alias = "舞蹈"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankDance
+    database_model = schema.BilibiliRankDance
     response_model = models.BilibiliVideoResponse
 
 
@@ -395,7 +423,7 @@ class RankGameSpider(BaseSearchSpider):
     alias = "游戏"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankGame
+    database_model = schema.BilibiliRankGame
     response_model = models.BilibiliVideoResponse
 
 
@@ -405,7 +433,7 @@ class RankTechSpider(BaseSearchSpider):
     alias = "科技"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankTech
+    database_model = schema.BilibiliRankTech
     response_model = models.BilibiliVideoResponse
 
 
@@ -415,7 +443,7 @@ class RankKnowledgeSpider(BaseSearchSpider):
     alias = "知识"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankKnowledge
+    database_model = schema.BilibiliRankKnowledge
     response_model = models.BilibiliVideoResponse
 
 
@@ -425,7 +453,7 @@ class RankSportSpider(BaseSearchSpider):
     alias = "运动"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankSport
+    database_model = schema.BilibiliRankSport
     response_model = models.BilibiliVideoResponse
 
 
@@ -435,7 +463,7 @@ class RankCarSpider(BaseSearchSpider):
     alias = "汽车"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankCar
+    database_model = schema.BilibiliRankCar
     response_model = models.BilibiliVideoResponse
 
 
@@ -445,7 +473,7 @@ class RankLifeSpider(BaseSearchSpider):
     alias = "生活"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankLife
+    database_model = schema.BilibiliRankLife
     response_model = models.BilibiliVideoResponse
 
 
@@ -455,7 +483,7 @@ class RankFoodSpider(BaseSearchSpider):
     alias = "美食"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankFood
+    database_model = schema.BilibiliRankFood
     response_model = models.BilibiliVideoResponse
 
 
@@ -465,7 +493,7 @@ class RankAnimalSpider(BaseSearchSpider):
     alias = "动物圈"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankAnimal
+    database_model = schema.BilibiliRankAnimal
     response_model = models.BilibiliVideoResponse
 
 
@@ -475,7 +503,7 @@ class RankAutoTuneSpider(BaseSearchSpider):
     alias = "鬼畜"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankAuto
+    database_model = schema.BilibiliRankAuto
     response_model = models.BilibiliVideoResponse
 
 
@@ -485,7 +513,7 @@ class RankFashionSpider(BaseSearchSpider):
     alias = "时尚"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankFashion
+    database_model = schema.BilibiliRankFashion
     response_model = models.BilibiliVideoResponse
 
 
@@ -495,7 +523,7 @@ class RankEntSpider(BaseSearchSpider):
     alias = "娱乐"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankEnt
+    database_model = schema.BilibiliRankEnt
     response_model = models.BilibiliVideoResponse
 
 
@@ -505,7 +533,7 @@ class RankFilmSpider(BaseSearchSpider):
     alias = "影视"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankFilm
+    database_model = schema.BilibiliRankFilm
     response_model = models.BilibiliVideoResponse
 
 
@@ -515,7 +543,7 @@ class RankMovieSpider(BaseSearchSpider):
     alias = "电影"
 
     item_model = models.PlayItem
-    database_model = db.BilibiliRankMovie
+    database_model = schema.BilibiliRankMovie
     response_model = models.BilibiliPlayResponse
 
 
@@ -525,7 +553,7 @@ class RankTvSpider(BaseSearchSpider):
     alias = "电视剧"
 
     item_model = models.PlayItem
-    database_model = db.BilibiliRankTv
+    database_model = schema.BilibiliRankTv
     response_model = models.BilibiliPlayResponse
 
 
@@ -535,7 +563,7 @@ class RankVarietySpider(BaseSearchSpider):
     alias = "综艺"
 
     item_model = models.PlayItem
-    database_model = db.BilibiliRankVariety
+    database_model = schema.BilibiliRankVariety
     response_model = models.BilibiliPlayResponse
 
 
@@ -545,7 +573,7 @@ class RankOriginSpider(BaseSearchSpider):
     alias = "原创"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankOrigin
+    database_model = schema.BilibiliRankOrigin
     response_model = models.BilibiliVideoResponse
 
 
@@ -555,7 +583,7 @@ class RankNewSpider(BaseSearchSpider):
     alias = "新人"
 
     item_model = models.VideoItem
-    database_model = db.BilibiliRankNew
+    database_model = schema.BilibiliRankNew
     response_model = models.BilibiliVideoResponse
 
 
@@ -567,7 +595,7 @@ class AuthorSpider(BasePageSpider):
     alias = "up主"
 
     response_model = models.AuthorVideoResponse
-    database_model = db.BilibiliAuthorVideo
+    database_model = schema.BilibiliAuthorVideo
     item_model = models.AuthorVideoItem
 
     encrypt_string_fmt = "dm_cover_img_str={dm_cover_img_str}&dm_img_list=%5B%5D&dm_img_str={dm_img_str}&keyword=&mid={mid}&order=pubdate&order_avoided=true&platform=web&pn={pn}&ps={ps}&tid=&web_location="

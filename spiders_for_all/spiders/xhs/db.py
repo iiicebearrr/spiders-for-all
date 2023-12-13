@@ -1,5 +1,5 @@
-from spiders_for_all.core import db
+from spiders_for_all.database import session
 
-SessionMaker = db.SessionMaker("xhs.db")
+SessionManager = session.SessionManager("xhs.db")
 
-Session = SessionMaker.session
+Session = SessionManager.session
