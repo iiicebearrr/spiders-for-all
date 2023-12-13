@@ -1,8 +1,8 @@
 from unittest import TestCase, mock
 from click.testing import CliRunner
 
-import spiders_for_all.spiders.bilibili.__main__ as bilibili_main
-from spiders_for_all.spiders.bilibili.__main__ import cli
+import spiders_for_all.spiders.bilibili.cli as bilibili_main
+from spiders_for_all.spiders.bilibili.cli import cli
 from pathlib import Path
 
 
