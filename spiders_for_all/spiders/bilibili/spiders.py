@@ -1,28 +1,24 @@
 from __future__ import annotations
-import logging
 
-import typing
-import time
 import hashlib
-import random
-from typing import TypeAlias
+import time
+import typing
 from functools import cached_property
-from itertools import batched
+from typing import TypeAlias
 
 import requests
-import sqlalchemy as sa
 from pydantic import BaseModel
-from sqlalchemy import orm
 
-from spiders_for_all.spiders.bilibili import models
-from spiders_for_all.spiders.bilibili import db
-from spiders_for_all.spiders.bilibili import const
-from spiders_for_all.spiders.bilibili import schema
-from spiders_for_all.core.base import SPIDERS, DbActionOnInit, Spider, get_all_spiders
-from spiders_for_all.utils.decorator import retry
+from spiders_for_all.conf import settings
+from spiders_for_all.core.spider import (
+    BaseSpider,
+    DbActionOnSave,
+    PageSpider,
+    SearchSpider,
+)
+from spiders_for_all.spiders.bilibili import db, models, schema
 from spiders_for_all.utils import helper
 from spiders_for_all.utils.logger import get_logger
-from spiders_for_all.conf import settings
 
 Session = db.Session
 
@@ -48,206 +44,28 @@ def calculate_end_page(total: int, page_size: int, start_page_number: int) -> in
     )
 
 
-class BaseBilibiliSpider(Spider):
+class BaseBilibiliSpider(BaseSpider):
+    platform = "bilibili"
     response_model: _BilibiliResponseTyped
     logger = logger
-    insert_batch = 100
-    session_maker = db.SessionManager
-
-    def __init__(
-        self,
-        *args,
-        logger: logging.Logger | None = None,
-        db_action_on_init: DbActionOnInit = DbActionOnInit.DO_NOTHING,
-        max_retries: int = const.REQUEST_MAX_RETRIES,
-        retry_interval: int = const.REQUEST_RETRY_INTERVAL,
-        retry_step: int = const.REQUEST_RETRY_STEP,
-        **kwargs,
-    ):
-        self.max_retries = int(max_retries)
-        self.retry_interval = int(retry_interval)
-        self.retry_step = int(retry_step)
-        super().__init__(
-            *args, logger=logger, db_action_on_init=db_action_on_init, **kwargs
-        )
-
-    def before(self):
-        """
-        Called before the spider starts
-        """
-        self.info(f"[{'Start':^10}]: {self.name}[{self.alias}]")
-
-    def after(self):
-        """
-        Called after the spider finishes
-        """
-        self.info(f"[{'Finished':^10}]: {self.name}[{self.alias}]")
-
-    def get_items(self) -> typing.Iterable[BaseModel]:
-        """
-        Get items from response
-        :return: An iterable object of `pydantic.BaseModel`
-        """
-        yield from self.get_items_from_response(self.send_request())
-
-    def process_item(self, item: BaseModel, **kwargs) -> orm.DeclarativeBase:
-        """
-        Create sqlalchemy model from pydantic model and kwargs
-        :param item: item validated by pydantic model
-        :param kwargs: extra kwargs to save to database
-        :return:
-        """
-        return self.database_model(
-            **{
-                **item.model_dump(),
-                **kwargs,
-            }
-        )
-
-    def send_request(self, method: str = "GET") -> _BilibiliResponse:
-        @retry(
-            max_retries=self.max_retries,
-            interval=self.retry_interval,
-            step=self.retry_step,
-        )
-        def _send_request(method: str = "GET") -> _BilibiliResponse:
-            """
-            Send request to api
-            :param method: http method
-            :return: A `pydantic.BaseModel` object
-            """
-            if not issubclass(self.response_model, models.BilibiliResponse):
-                raise TypeError(
-                    f"{self.response_model} is not a valid response model, "
-                    f"should be a subclass of {models.BilibiliResponse}"
-                )
-            req_kwargs = self.get_request_args()
-            self.debug(f"==> {method.upper()} {self.api}: {req_kwargs}")
-            resp = requests.request(method, self.api, **req_kwargs)
-            self.debug(f"<== {method.upper()} {resp.request.url}: {resp.status_code}")
-            resp.raise_for_status()
-            json_data = resp.json()
-            self.debug(f"<== Response json: {json_data}")
-            return self.response_model(**json_data)
-
-        return _send_request(method)
-
-    def get_request_args(self) -> dict:
-        """
-        Request kwargs to set
-        """
-        return {"headers": helper.user_agent_headers()}
+    session_manager = db.SessionManager
 
     def get_items_from_response(
         self, response: _BilibiliResponse
     ) -> typing.Iterable[BaseModel]:
-        """
-        Get list data items from response model
-        :param response:
-        """
         response.raise_for_status()
         return response.data.list_data
 
-    def save_to_db(self, items: typing.Iterable[BaseModel]):
-        """
-        Save items to database
-        :param items: An iterable object of `pydantic.BaseModel`
-        :return:
-        """
-        with Session() as s:
-            for batch in batched(items, self.insert_batch):
-                self.recreate(batch, session=s)
-                self.info(f"Inserted {len(batch)} items")
-            s.commit()
 
-    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
-        """
-        Upsert/Recreate items to database
-        :param items: items to be upserted
-        :param session: sqlalchemy session object
-        :return:
-        """
-
-        # TODO: Make truncate and upsert as options
-        session.execute(sa.delete(self.database_model))
-        session.add_all(map(self.process_item, items))
-
-    def run(self):
-        """
-        Run the spider
-        """
-        self.before()
-        self.save_to_db(self.get_items())
-        self.after()
+class BaseBilibiliPageSpider(BaseBilibiliSpider, PageSpider):
+    pass
 
 
-class BasePageSpider(BaseBilibiliSpider):
-    default_page_size: int = 20
-    default_page_number: int = 1
-    default_total: int = 100
-
-    def __init__(
-        self,
-        total: int = default_total,
-        page_size: int = default_page_size,
-        page_number: int = default_page_number,
-        sleep_before_next_request: float | int | tuple[int, int] | None = None,
-    ):
-        """
-        :param total: Total number of items to be crawled
-        :param page_size: Number of items per page
-        :param page_number: Start page number
-        """
-        super().__init__()
-        self.total = int(total)
-        self.page_size = int(page_size)
-        self.page_number = int(page_number)
-        self.end_page_number = calculate_end_page(
-            self.total, self.page_size, self.page_number
-        )
-        self.sleep_before_next_request = sleep_before_next_request
-
-    def get_items(self) -> typing.Iterable[BaseModel]:
-        """
-        Get items by page
-        :return:
-        """
-        count = 0
-        while self.page_number <= self.end_page_number:
-            # TODO: change page size dynamically instead of calculating `count`
-            response = self.send_request()
-            items = self.get_items_from_response(response)
-            if not items:
-                break
-            for item in items:
-                yield item
-                count += 1
-                if count >= self.total:
-                    return
-            if self.sleep_before_next_request is not None:
-                time.sleep(random.randrange(2, 5))
-            self.page_number += 1
-
-    def sleep(self):
-        match self.sleep_before_next_request:
-            case int():
-                time.sleep(float(self.sleep_before_next_request))
-            case float():
-                time.sleep(self.sleep_before_next_request)
-            case tuple():
-                start, end = self.sleep_before_next_request
-                time.sleep(random.randrange(start=start, stop=end))
-            case _:
-                raise TypeError(f"Invalid type: {type(self.sleep_before_next_request)}")
+class BaseBilibiliSearchSpider(BaseBilibiliSpider, SearchSpider):
+    pass
 
 
-class BaseSearchSpider(BaseBilibiliSpider):
-    def __init__(self, **search_params):
-        super().__init__()
-        self.search_params = search_params
-
-
-class PopularSpider(BasePageSpider):
+class PopularSpider(BaseBilibiliPageSpider):
     api: str = "https://api.bilibili.com/x/web-interface/popular"
     name: str = "popular"
     alias = "综合热门"
@@ -255,26 +73,13 @@ class PopularSpider(BasePageSpider):
     item_model = models.PopularVideoItem
     response_model = models.PopularResponse
 
-    def get_request_args(self) -> dict:
-        return {
-            **super().get_request_args(),
-            "params": {
-                "pn": self.page_number,
-                "ps": self.page_size,
-            },
-        }
+    page_field = "pn"
+    page_size_field = "ps"
 
-    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
-        items = list(items)
-        session.execute(
-            sa.delete(self.database_model).where(
-                self.database_model.bvid.in_([item.bvid for item in items]),  # type: ignore
-            )
-        )
-        session.add_all([self.process_item(item) for item in items])
+    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
 
 
-class WeeklySpider(BaseSearchSpider):
+class WeeklySpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/popular/series/one"
     api_list = "https://api.bilibili.com/x/web-interface/popular/series/list"
     name = "weekly"
@@ -287,24 +92,21 @@ class WeeklySpider(BaseSearchSpider):
 
     numbers_list: list[int] | None = None
 
+    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
+
     @cached_property
     def week(self) -> int:
         # Use the latest week number if not specified
-        if self.search_key not in self.search_params:
+        if self.search_key not in self.kwargs:
             self.get_all_numbers()
             return max(self.numbers_list)  # type: ignore
-        return int(self.search_params[self.search_key])
+        return int(self.kwargs[self.search_key])
 
     def get_request_args(self) -> dict:
         return {**super().get_request_args(), "params": {"number": self.week}}
 
-    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
-        session.execute(
-            sa.delete(self.database_model).where(
-                self.database_model.week == self.week,  # type: ignore
-            )
-        )
-        session.add_all([self.process_item(item, week=self.week) for item in items])
+    def item_to_dict(self, item: BaseModel, **extra) -> dict:
+        return super().item_to_dict(item, week=self.week, **extra)
 
     @classmethod
     def get_all_numbers(cls) -> list[int]:
@@ -320,7 +122,7 @@ class WeeklySpider(BaseSearchSpider):
         return cls.numbers_list
 
 
-class PreciousSpider(BasePageSpider):
+class PreciousSpider(BaseBilibiliPageSpider):
     api = "https://api.bilibili.com/x/web-interface/popular/precious"
     name = "precious"
     alias = "入站必刷"
@@ -337,7 +139,7 @@ class PreciousSpider(BasePageSpider):
         }
 
 
-class RankAllSpider(BaseSearchSpider):
+class RankAllSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=all"
     name = "rank_all"
     alias = "全站"
@@ -347,7 +149,7 @@ class RankAllSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankDramaSpider(BaseSearchSpider):
+class RankDramaSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/pgc/web/rank/list?day=3&season_type=1"
     name = "rank_drama"
     alias = "番剧"
@@ -357,7 +159,7 @@ class RankDramaSpider(BaseSearchSpider):
     response_model = models.RankDramaResponse
 
 
-class RankCnCartoonSpider(BaseSearchSpider):
+class RankCnCartoonSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/pgc/season/rank/web/list?day=3&season_type=4"
     name = "rank_cn_cartoon"
     alias = "国产动画"
@@ -367,7 +169,7 @@ class RankCnCartoonSpider(BaseSearchSpider):
     response_model = models.BilibiliPlayResponse
 
 
-class RankCnRelatedSpider(BaseSearchSpider):
+class RankCnRelatedSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=168&type=all"
     name = "rank_cn_related"
     alias = "国创相关"
@@ -377,7 +179,7 @@ class RankCnRelatedSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankDocumentarySpider(BaseSearchSpider):
+class RankDocumentarySpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/pgc/season/rank/web/list?day=3&season_type=3"
     name = "rank_documentary"
     alias = "纪录片"
@@ -387,7 +189,7 @@ class RankDocumentarySpider(BaseSearchSpider):
     response_model = models.BilibiliPlayResponse
 
 
-class RankCartoonSpider(BaseSearchSpider):
+class RankCartoonSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=1&type=all"
     name = "rank_cartoon"
     alias = "动画"
@@ -397,7 +199,7 @@ class RankCartoonSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankMusicSpider(BaseSearchSpider):
+class RankMusicSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=3&type=all"
     name = "rank_music"
     alias = "音乐"
@@ -407,7 +209,7 @@ class RankMusicSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankDanceSpider(BaseSearchSpider):
+class RankDanceSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=129&type=all"
     name = "rank_dance"
     alias = "舞蹈"
@@ -417,7 +219,7 @@ class RankDanceSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankGameSpider(BaseSearchSpider):
+class RankGameSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=4&type=all"
     name = "rank_game"
     alias = "游戏"
@@ -427,7 +229,7 @@ class RankGameSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankTechSpider(BaseSearchSpider):
+class RankTechSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=188&type=all"
     name = "rank_tech"
     alias = "科技"
@@ -437,7 +239,7 @@ class RankTechSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankKnowledgeSpider(BaseSearchSpider):
+class RankKnowledgeSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=36&type=all"
     name = "rank_knowledge"
     alias = "知识"
@@ -447,7 +249,7 @@ class RankKnowledgeSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankSportSpider(BaseSearchSpider):
+class RankSportSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=234&type=all"
     name = "rank_sport"
     alias = "运动"
@@ -457,7 +259,7 @@ class RankSportSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankCarSpider(BaseSearchSpider):
+class RankCarSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=223&type=all"
     name = "rank_car"
     alias = "汽车"
@@ -467,7 +269,7 @@ class RankCarSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankLifeSpider(BaseSearchSpider):
+class RankLifeSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=160&type=all"
     name = "rank_life"
     alias = "生活"
@@ -477,7 +279,7 @@ class RankLifeSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankFoodSpider(BaseSearchSpider):
+class RankFoodSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=211&type=all"
     name = "rank_food"
     alias = "美食"
@@ -487,7 +289,7 @@ class RankFoodSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankAnimalSpider(BaseSearchSpider):
+class RankAnimalSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=217&type=all"
     name = "rank_animal"
     alias = "动物圈"
@@ -497,7 +299,7 @@ class RankAnimalSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankAutoTuneSpider(BaseSearchSpider):
+class RankAutoTuneSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=119&type=all"
     name = "rank_auto_tune"
     alias = "鬼畜"
@@ -507,7 +309,7 @@ class RankAutoTuneSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankFashionSpider(BaseSearchSpider):
+class RankFashionSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=155&type=all"
     name = "rank_fashion"
     alias = "时尚"
@@ -517,7 +319,7 @@ class RankFashionSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankEntSpider(BaseSearchSpider):
+class RankEntSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=5&type=all"
     name = "rank_ent"
     alias = "娱乐"
@@ -527,7 +329,7 @@ class RankEntSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankFilmSpider(BaseSearchSpider):
+class RankFilmSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=181&type=all"
     name = "rank_film"
     alias = "影视"
@@ -537,7 +339,7 @@ class RankFilmSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankMovieSpider(BaseSearchSpider):
+class RankMovieSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/pgc/season/rank/web/list?day=3&season_type=2"
     name = "rank_movie"
     alias = "电影"
@@ -547,7 +349,7 @@ class RankMovieSpider(BaseSearchSpider):
     response_model = models.BilibiliPlayResponse
 
 
-class RankTvSpider(BaseSearchSpider):
+class RankTvSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/pgc/season/rank/web/list?day=3&season_type=5"
     name = "rank_tv"
     alias = "电视剧"
@@ -557,7 +359,7 @@ class RankTvSpider(BaseSearchSpider):
     response_model = models.BilibiliPlayResponse
 
 
-class RankVarietySpider(BaseSearchSpider):
+class RankVarietySpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/pgc/season/rank/web/list?day=3&season_type=7"
     name = "rank_variety"
     alias = "综艺"
@@ -567,7 +369,7 @@ class RankVarietySpider(BaseSearchSpider):
     response_model = models.BilibiliPlayResponse
 
 
-class RankOriginSpider(BaseSearchSpider):
+class RankOriginSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=origin"
     name = "rank_origin"
     alias = "原创"
@@ -577,7 +379,7 @@ class RankOriginSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class RankNewSpider(BaseSearchSpider):
+class RankNewSpider(BaseBilibiliSearchSpider):
     api = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=rookie"
     name = "rank_new"
     alias = "新人"
@@ -587,7 +389,7 @@ class RankNewSpider(BaseSearchSpider):
     response_model = models.BilibiliVideoResponse
 
 
-class AuthorSpider(BasePageSpider):
+class AuthorSpider(BaseBilibiliPageSpider):
     api = "https://api.bilibili.com/x/space/wbi/arc/search"
     api_get_nav_num = "https://api.bilibili.com/x/space/navnum"
     api_get_nav = "https://api.bilibili.com/x/web-interface/nav"
@@ -600,6 +402,8 @@ class AuthorSpider(BasePageSpider):
 
     encrypt_string_fmt = "dm_cover_img_str={dm_cover_img_str}&dm_img_list=%5B%5D&dm_img_str={dm_img_str}&keyword=&mid={mid}&order=pubdate&order_avoided=true&platform=web&pn={pn}&ps={ps}&tid=&web_location="
 
+    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
+
     def __init__(
         self,
         mid: int,
@@ -608,6 +412,10 @@ class AuthorSpider(BasePageSpider):
         page_size: int = 30,
         page_number: int = 1,
     ):
+        super().__init__(
+            total=total, page_size=page_size, start_page_number=page_number
+        )
+
         self.mid = mid
 
         self.sess_data = sess_data
@@ -615,19 +423,6 @@ class AuthorSpider(BasePageSpider):
         self.wbi_info = self.get_wbi_info()
 
         self.key = self.get_mixin_key(self.wbi_info.img_key + self.wbi_info.sub_key)
-
-        total = (
-            self.get_total(self.mid)
-            if total is None
-            else min(total, self.get_total(self.mid))
-        )
-
-        super().__init__(
-            total=total,
-            page_size=page_size,
-            page_number=page_number,
-            sleep_before_next_request=(5, 10),
-        )
 
     def get_wbi_info(self) -> models.WbiInfo:
         resp = requests.get(
@@ -717,18 +512,6 @@ class AuthorSpider(BasePageSpider):
                 result.append(e[r])
         return "".join(result)[:32]
 
-    def get_total(self, mid: int) -> int:
-        resp = requests.get(
-            self.api_get_nav_num,
-            params={"mid": mid},
-            headers=helper.user_agent_headers(),
-        )
-        resp.raise_for_status()
-        total = resp.json().get("data", {}).get("video", None)
-        if total is None:
-            raise ValueError(f"mid {mid} info not found")
-        return total
-
     def get_items_from_response(
         self,
         # TODO: fix mypy error
@@ -773,28 +556,3 @@ class AuthorSpider(BasePageSpider):
             **kwargs,
             "params": params,
         }
-
-    def recreate(self, items: typing.Iterable[BaseModel], session: orm.Session):
-        items = list(items)
-        session.execute(
-            sa.delete(self.database_model).where(
-                self.database_model.bvid.in_([item.bvid for item in items]),  # type: ignore
-            )
-        )
-        session.add_all([self.process_item(item) for item in items])
-
-
-def run_spider(name: str, *args, **kwargs):
-    try:
-        spider = SPIDERS[name](*args, **kwargs)
-    except KeyError as ke:
-        print(f"spider not found: {ke.args[0]}")
-        exit(1)
-    spider.run()
-
-
-if __name__ == "__main__":
-    spiders = get_all_spiders()
-    for spider_cls, spider_item in spiders.items():
-        _spider = spider_cls()
-        _spider.run()

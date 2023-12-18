@@ -33,10 +33,24 @@ LOGGING_CONFIG = {
             "encoding": "utf-8",
             "formatter": "file",
         },
+        "xhs-file": {
+            "level": LEVEL,
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": settings.WORKDIR / "logs" / "xhs.log",
+            "maxBytes": 1024 * 1024 * 10,
+            "backupCount": 5,
+            "encoding": "utf-8",
+            "formatter": "file",
+        },
     },
     "loggers": {
         "bilibili": {
             "handlers": ["default", "bilibili-file"],
+            "level": LEVEL,
+            "propagate": True,
+        },
+        "xhs": {
+            "handlers": ["default", "xhs-file"],
             "level": LEVEL,
             "propagate": True,
         },

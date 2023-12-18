@@ -1,12 +1,11 @@
 import secrets
 from typing import Type
-
-from spiders_for_all.spiders.bilibili import spiders
 from unittest import TestCase, mock
 
-from sqlalchemy.orm import mapped_column, MappedColumn
 from pydantic import BaseModel
+from sqlalchemy.orm import MappedColumn, mapped_column
 
+from spiders_for_all.spiders.bilibili import spiders
 from spiders_for_all.spiders.bilibili.db import BaseTable
 from spiders_for_all.spiders.bilibili.models import BilibiliVideoResponse, VideoItem
 from tests._utils import mock_logger

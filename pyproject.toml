@@ -26,6 +26,7 @@ coverage = "^7.3.2"
 types-requests = "^2.31.0.10"
 pre-commit = "^3.5.0"
 pytest = "^7.4.3"
+isort = "^5.13.2"
 
 [build-system]
 requires = ["poetry-core"]
@@ -33,3 +34,19 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 files = ["spiders_for_all"]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+# All paths are relative to the project root, which is the directory containing the pyproject.toml.
+src = ["spiders_for_all"]
+ignore-init-module-imports = true
+fix = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+case-sensitive = true

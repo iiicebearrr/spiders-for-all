@@ -1,4 +1,5 @@
-from unittest import mock, TestCase
+from unittest import TestCase, mock
+
 from spiders_for_all.spiders.bilibili import analysis, db
 
 

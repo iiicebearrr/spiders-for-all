@@ -4,10 +4,19 @@ import click
 import sqlalchemy as sa
 from rich import print
 
-from spiders_for_all.spiders.bilibili import spiders, download, analysis, db, const
-from spiders_for_all.core.base import SPIDERS
+from spiders_for_all.core.spider import SPIDERS
+from spiders_for_all.spiders.bilibili import (
+    analysis,
+    const,
+    db,
+    download,
+    schema,
+    spiders,
+)
 
 _ = spiders  # to call init_subclass
+
+BILIBILI_SPIDERS = SPIDERS.get("bilibili", {})
 
 
 @click.group("bilibili")
@@ -37,6 +46,9 @@ def cli():
     "-d",
     is_flag=True,
 )
+@click.option(
+    "--where", "-w", type=str, help="Where conditions to specify the bvid to download. "
+)
 @cli.command()
 def run_spider(
     name: str,
@@ -44,11 +56,12 @@ def run_spider(
     save_dir: Path | None = None,
     sess_data: str | None = None,
     download_only: bool = False,
+    where: str | None = None,
 ):
     """Run a spider by name"""
-    if name not in SPIDERS:
+    if name not in BILIBILI_SPIDERS:
         raise ValueError(f"Spider {name} not found")  # pragma: no cover
-    spider = SPIDERS[name](**{k: v for k, v in params})  # type: ignore
+    spider = BILIBILI_SPIDERS[name](**{k: v for k, v in params})  # type: ignore
 
     if not download_only:
         print(f"[bold light_green]Running spider: {spider.string()}")
@@ -62,7 +75,14 @@ def run_spider(
         with db.Session() as s:
             db_model = spider.database_model
             select_bvid_stmt = sa.select(getattr(db_model, "bvid"))
+            if where:
+                select_bvid_stmt = select_bvid_stmt.where(sa.text(where))
             bvid_list = [row.bvid for row in s.execute(select_bvid_stmt)]
+
+            if not bvid_list:
+                print("[bold yellow]No videos found to be downloaded...")
+                print(f"Statement: {select_bvid_stmt}")
+                return
 
             print(f"[bold yellow]{len(bvid_list)} videos found to be downloaded...")
 
@@ -80,10 +100,9 @@ def run_spider(
 @cli.command()
 def list_spiders():
     """List all available spiders"""
-    print("Available spiders:")
-    reversed_map = {v: k for k, v in SPIDERS.items()}
+    reversed_map = {v: k for k, v in BILIBILI_SPIDERS.items()}
     for spider in reversed_map:
-        print(f"  - {spider.string()})")
+        print(f"  - {spider.string()}")
 
 
 @cli.command()
@@ -91,9 +110,9 @@ def list_spiders():
 @click.option("--top-n", "-t", help="Top N", required=True, type=int, default=10)
 def data_analysis(name: str, top_n: int):
     """List the data as table for a spider"""
-    if name not in SPIDERS:
+    if name not in BILIBILI_SPIDERS:
         raise ValueError(f"Spider {name} not found")  # pragma: no cover
-    spider = SPIDERS[name]
+    spider = BILIBILI_SPIDERS[name]
     print(f"Running analysis: {spider.string()}")
     analysis.Analysis(spider.database_model, top_n).show()  # type: ignore
 
@@ -240,15 +259,27 @@ def download_videos(
 )
 @click.option("--sess-data", "-ss", help="`SESSDATA`", required=False)
 @click.option("--max-workers", "-w", help="max workers", type=int, default=4)
+@click.option(
+    "--total",
+    "-t",
+    help="Total number of videos to download. If not set, will download all the videos.",
+    type=int,
+)
 def download_by_author(
-    mid: int, save_dir: Path, sess_data: str | None = None, max_workers: int = 4
+    mid: int,
+    save_dir: Path,
+    sess_data: str | None = None,
+    max_workers: int = 4,
+    total: int | None = None,
 ):
+    author_spider = spiders.AuthorSpider(mid=mid, sess_data=sess_data, total=total)
+    author_spider.run()
     with db.Session() as s:
         bvids = [
             row.bvid
             for row in s.execute(
-                sa.select(db.BilibiliAuthorVideo.bvid).where(
-                    db.BilibiliAuthorVideo.mid == mid
+                sa.select(schema.BilibiliAuthorVideo.bvid).where(
+                    schema.BilibiliAuthorVideo.mid == mid
                 )
             )
         ]

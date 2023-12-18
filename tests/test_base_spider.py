@@ -1,11 +1,13 @@
-from typing import Type
-from spiders_for_all.core.base import Spider, SPIDERS
-from unittest import TestCase
-from sqlalchemy.orm import DeclarativeBase, mapped_column, MappedColumn
-from pydantic import BaseModel
-from spiders_for_all.conf import settings
-from tests._utils import mock_logger
 import secrets
+from typing import Type
+from unittest import TestCase
+
+from pydantic import BaseModel
+from sqlalchemy.orm import DeclarativeBase, MappedColumn, mapped_column
+
+from spiders_for_all.conf import settings
+from spiders_for_all.core.spider import SPIDERS, BaseSpider
+from tests._utils import mock_logger
 
 
 class _Base(DeclarativeBase):
@@ -30,8 +32,8 @@ class _Response(BaseModel):
 
 
 class TestBaseSpider(TestCase):
-    def get_spider(self) -> Type[Spider]:
-        class _TestSpider(Spider):
+    def get_spider(self) -> Type[BaseSpider]:
+        class _TestSpider(BaseSpider):
             api = "api"
             name = secrets.token_hex(8)
             alias = secrets.token_hex(16)
@@ -50,7 +52,7 @@ class TestBaseSpider(TestCase):
             "Attribute .* is required",
         ):
 
-            class _TestSpider(Spider):
+            class _TestSpider(BaseSpider):
                 def run(self):
                     pass
 
@@ -62,7 +64,7 @@ class TestBaseSpider(TestCase):
             "Duplicate spider name: test",
         ):
 
-            class _TestSpider(Spider):
+            class _TestSpider(BaseSpider):
                 name = "test"
                 alias = "test_alias"
                 database_model = Table
@@ -72,7 +74,7 @@ class TestBaseSpider(TestCase):
                 def run(self):
                     pass
 
-            class _TestSpider_2(Spider):
+            class _TestSpider_2(BaseSpider):
                 name = "test"
                 alias = "test_alias_2"
                 database_model = Table
@@ -88,7 +90,7 @@ class TestBaseSpider(TestCase):
             "Duplicate spider alias: test_alias",
         ):
 
-            class _TestSpider(Spider):
+            class _TestSpider(BaseSpider):
                 name = "test"
                 alias = "test_alias"
                 database_model = Table
@@ -98,7 +100,7 @@ class TestBaseSpider(TestCase):
                 def run(self):
                     pass
 
-            class _TestSpider_2(Spider):
+            class _TestSpider_2(BaseSpider):
                 name = "test_2"
                 alias = "test_alias"
                 database_model = Table

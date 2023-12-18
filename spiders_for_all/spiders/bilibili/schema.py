@@ -1,8 +1,10 @@
 import json
+
 from sqlalchemy import orm
 from sqlalchemy.ext.hybrid import hybrid_property
-from spiders_for_all.spiders.bilibili import models
+
 from spiders_for_all.database import schema
+from spiders_for_all.spiders.bilibili import models
 
 BaseTable = schema.BaseTable
 

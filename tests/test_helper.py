@@ -1,5 +1,6 @@
-from spiders_for_all.utils import helper
 from unittest import TestCase
+
+from spiders_for_all.utils import helper
 
 
 class TestHelper(TestCase):

@@ -2,36 +2,36 @@ import json
 import logging
 import re
 import subprocess
-from bs4 import BeautifulSoup
+from concurrent import futures
 from enum import Enum, auto
+from functools import cached_property
+from itertools import chain
 from operator import attrgetter
 from pathlib import Path
-from functools import cached_property
-from typing import Callable, TypeAlias, Generator, BinaryIO, Any, Optional
-from itertools import chain
 from traceback import format_tb
+from typing import Any, BinaryIO, Callable, Generator, Optional, TypeAlias
 
-from rich.progress import (
-    Progress,
-    DownloadColumn,
-    TransferSpeedColumn,
-    TaskID,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    BarColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-    MofNCompleteColumn,
-)
-from concurrent import futures
-from rich.console import Console
 import requests
+from bs4 import BeautifulSoup
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 
-from spiders_for_all.spiders.bilibili import models, patterns, const
-from spiders_for_all.utils.helper import user_agent_headers, rm_tree, correct_filename
-from spiders_for_all.utils.logger import default_logger as logger
 from spiders_for_all.conf import settings
+from spiders_for_all.spiders.bilibili import const, models, patterns
+from spiders_for_all.utils.helper import correct_filename, rm_tree, user_agent_headers
+from spiders_for_all.utils.logger import default_logger as logger
 
 Media: TypeAlias = models.PlayVideo | models.PlayAudio
 Medias: TypeAlias = list[Media]

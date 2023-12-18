@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Sequence, Type, TypeAlias
+
 import sqlalchemy as sa
 from sqlalchemy import orm
-from typing import Sequence, TypeAlias, Type
 
 
 class Base(orm.DeclarativeBase):

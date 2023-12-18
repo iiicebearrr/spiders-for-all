@@ -1,7 +1,9 @@
+import json
 import re
-from fake_useragent import UserAgent  # type: ignore
-
+import typing as t
 from pathlib import Path
+
+from fake_useragent import UserAgent  # type: ignore
 
 ua = UserAgent()
 
@@ -29,3 +31,13 @@ def rm_tree(pth: Path):
         else:
             rm_tree(child)
     pth.rmdir()
+
+
+def not_none_else(value: t.Any, default: t.Any):
+    return value if value is not None else default
+
+
+def javascript_to_dict(raw: str) -> dict:
+    return json.loads(
+        raw.replace("undefined", "null"),
+    )

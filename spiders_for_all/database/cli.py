@@ -1,10 +1,12 @@
-import click
 import inspect
 import re
-from sqlalchemy import orm, create_engine, text
+
+import click
 from rich import print, table
+from sqlalchemy import create_engine, orm, text
+
+from spiders_for_all.database import manager, schema
 from spiders_for_all.spiders import bilibili, xhs
-from spiders_for_all.database import schema, manager
 
 # regex to match tablename from sql, case insensitive
 RGX_FIND_TABLENAME = re.compile(r"FROM\s+([^\s;]+)", re.IGNORECASE)

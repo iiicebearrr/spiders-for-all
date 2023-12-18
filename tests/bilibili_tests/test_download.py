@@ -1,11 +1,13 @@
 import logging
+from pathlib import Path
 from typing import Any
 from unittest import TestCase, mock
-from pathlib import Path
-from spiders_for_all.spiders.bilibili import download, models, const
-from spiders_for_all.conf import settings
-from rich.progress import TaskID, Progress
+
 from rich.console import Console
+from rich.progress import Progress, TaskID
+
+from spiders_for_all.conf import settings
+from spiders_for_all.spiders.bilibili import const, download, models
 
 
 class TestTask(TestCase):

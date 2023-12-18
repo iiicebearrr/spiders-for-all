@@ -1,10 +1,12 @@
+from enum import Enum, auto
+
 import sqlalchemy as sa
+from rich import print
+from sqlalchemy import orm
+
 from spiders_for_all.conf import settings
 from spiders_for_all.database import schema
 from spiders_for_all.utils import helper
-from sqlalchemy import orm
-from rich import print
-from enum import Enum, auto
 
 
 class DatabaseOperationType(Enum):

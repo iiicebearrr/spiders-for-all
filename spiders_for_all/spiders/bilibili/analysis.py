@@ -1,7 +1,7 @@
 import json
-from typing import Type, TypeAlias
-from functools import cached_property
 from enum import Enum, auto
+from functools import cached_property
+from typing import Type, TypeAlias
 
 from rich import print
 from rich import table as rich_table

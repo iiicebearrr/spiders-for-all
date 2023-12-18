@@ -1,7 +1,9 @@
-import sqlalchemy as sa
-from typing import Protocol, Type
-from spiders_for_all.database import schema, session
 from enum import Enum
+from typing import Protocol, Type
+
+import sqlalchemy as sa
+
+from spiders_for_all.database import schema, session
 
 
 class DDLType(Enum):

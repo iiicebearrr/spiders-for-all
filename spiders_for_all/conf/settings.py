@@ -1,7 +1,8 @@
 import logging
-import os
 import multiprocessing
+import os
 from pathlib import Path
+
 from environs import Env
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -43,3 +44,7 @@ BILIBILI_PARAM_DM_COVER_IMG_STR = env.str(
     "BILIBILI_PARAM_DM_COVER_IMG_STR",
     "QU5HTEUgKEludGVsIEluYy4sIEludGVsKFIpIElyaXMoVE0pIFBsdXMgR3JhcGhpY3MgNjU1LCBPcGVuR0wgNC4xKUdvb2dsZSBJbmMuIChJbnRlbCBJbmMuKQ",
 )
+
+REQUEST_MAX_RETRIES = env.int("REQUEST_MAX_RETRIES", 3)
+REQUEST_RETRY_INTERVAL = env.int("REQUEST_RETRY_INTERVAL", 30)
+REQUEST_RETRY_STEP = env.int("REQUEST_RETRY_STEP", 10)

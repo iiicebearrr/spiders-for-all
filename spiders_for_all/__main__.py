@@ -1,7 +1,8 @@
 import click
+
+from spiders_for_all.database import cli as database_cli
 from spiders_for_all.spiders.bilibili import cli as bilibili_cli
 from spiders_for_all.spiders.xhs import cli as xhs_cli
-from spiders_for_all.database import cli as database_cli
 
 
 @click.group()
