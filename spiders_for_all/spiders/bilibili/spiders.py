@@ -3,21 +3,13 @@ from __future__ import annotations
 import hashlib
 import time
 import typing
-from functools import cached_property
 from typing import TypeAlias
 
-import requests
 from pydantic import BaseModel
 
 from spiders_for_all.conf import settings
-from spiders_for_all.core.spider import (
-    BaseSpider,
-    DbActionOnSave,
-    PageSpider,
-    SearchSpider,
-)
+from spiders_for_all.core import spider
 from spiders_for_all.spiders.bilibili import db, models, schema
-from spiders_for_all.utils import helper
 from spiders_for_all.utils.logger import get_logger
 
 Session = db.Session
@@ -44,24 +36,25 @@ def calculate_end_page(total: int, page_size: int, start_page_number: int) -> in
     )
 
 
-class BaseBilibiliSpider(BaseSpider):
+class BaseBilibiliSpider(spider.BaseSpider):
     platform = "bilibili"
     response_model: _BilibiliResponseTyped
     logger = logger
     session_manager = db.SessionManager
 
     def get_items_from_response(
-        self, response: _BilibiliResponse
+        self,
+        response: _BilibiliResponse,  # type: ignore
     ) -> typing.Iterable[BaseModel]:
         response.raise_for_status()
         return response.data.list_data
 
 
-class BaseBilibiliPageSpider(BaseBilibiliSpider, PageSpider):
+class BaseBilibiliPageSpider(BaseBilibiliSpider, spider.PageSpider):
     pass
 
 
-class BaseBilibiliSearchSpider(BaseBilibiliSpider, SearchSpider):
+class BaseBilibiliSearchSpider(BaseBilibiliSpider, spider.SearchSpider):
     pass
 
 
@@ -76,50 +69,48 @@ class PopularSpider(BaseBilibiliPageSpider):
     page_field = "pn"
     page_size_field = "ps"
 
-    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
+    db_action_on_save = spider.DbActionOnSave.UPDATE_OR_CREATE
 
 
-class WeeklySpider(BaseBilibiliSearchSpider):
-    api = "https://api.bilibili.com/x/web-interface/popular/series/one"
-    api_list = "https://api.bilibili.com/x/web-interface/popular/series/list"
-    name = "weekly"
-    alias = "每周必看"
-    item_model = models.WeeklyVideoItem
-    response_model = models.WeeklyResponse
-    database_model = schema.BilibiliWeeklyVideos
+# TODO: Weekly api now need w_rid
+# class WeeklySpider(BaseBilibiliSearchSpider):
+#     api = "https://api.bilibili.com/x/web-interface/popular/series/one"
+#     api_list = "https://api.bilibili.com/x/web-interface/popular/series/list"
+#     name = "weekly"
+#     alias = "每周必看"
+#     item_model = models.WeeklyVideoItem
+#     response_model = models.WeeklyResponse
+#     database_model = schema.BilibiliWeeklyVideos
 
-    search_key: str = "week"
+#     search_key: str = "week"
 
-    numbers_list: list[int] | None = None
+#     numbers_list: list[int] | None = None
 
-    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
+#     db_action_on_save = spider.DbActionOnSave.UPDATE_OR_CREATE
 
-    @cached_property
-    def week(self) -> int:
-        # Use the latest week number if not specified
-        if self.search_key not in self.kwargs:
-            self.get_all_numbers()
-            return max(self.numbers_list)  # type: ignore
-        return int(self.kwargs[self.search_key])
+#     @cached_property
+#     def week(self) -> int:
+#         # Use the latest week number if not specified
+#         if self.search_key not in self.kwargs:
+#             self.get_all_numbers()
+#             return max(self.numbers_list)  # type: ignore
+#         return int(self.kwargs[self.search_key])
 
-    def get_request_args(self) -> dict:
-        return {**super().get_request_args(), "params": {"number": self.week}}
+#     def get_request_args(self) -> dict:
+#         return {**super().get_request_args(), "params": {"number": self.week}}
 
-    def item_to_dict(self, item: BaseModel, **extra) -> dict:
-        return super().item_to_dict(item, week=self.week, **extra)
+#     def item_to_dict(self, item: BaseModel, **extra) -> dict:
+#         return super().item_to_dict(item, week=self.week, **extra)
 
-    @classmethod
-    def get_all_numbers(cls) -> list[int]:
-        if cls.numbers_list is None:
-            resp = requests.get(
-                cls.api_list,
-                headers={
-                    **helper.user_agent_headers(),
-                },
-            )
-            resp.raise_for_status()
-            cls.numbers_list = [item["number"] for item in resp.json()["data"]["list"]]
-        return cls.numbers_list
+#     @classmethod
+#     def get_all_numbers(cls) -> list[int]:
+#         if cls.numbers_list is None:
+#             with client.HttpClient(logger=cls.logger) as c:
+#                 resp = c.get(cls.api_list)
+#                 cls.numbers_list = [
+#                     item["number"] for item in resp.json()["data"]["list"]
+#                 ]
+#         return cls.numbers_list
 
 
 class PreciousSpider(BaseBilibiliPageSpider):
@@ -402,7 +393,7 @@ class AuthorSpider(BaseBilibiliPageSpider):
 
     encrypt_string_fmt = "dm_cover_img_str={dm_cover_img_str}&dm_img_list=%5B%5D&dm_img_str={dm_img_str}&keyword=&mid={mid}&order=pubdate&order_avoided=true&platform=web&pn={pn}&ps={ps}&tid=&web_location="
 
-    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
+    db_action_on_save = spider.DbActionOnSave.UPDATE_OR_CREATE
 
     def __init__(
         self,
@@ -413,8 +404,19 @@ class AuthorSpider(BaseBilibiliPageSpider):
         page_number: int = 1,
     ):
         super().__init__(
-            total=total, page_size=page_size, start_page_number=page_number
+            total=total,
+            page_size=page_size,
+            start_page_number=page_number,
+            sleep_before_next_request=(5, 11),
         )
+        self.client.headers.update(
+            {
+                "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+            }
+        )
+
+        if sess_data:
+            self.client.cookies.update({"SESSDATA": sess_data})
 
         self.mid = mid
 
@@ -425,19 +427,15 @@ class AuthorSpider(BaseBilibiliPageSpider):
         self.key = self.get_mixin_key(self.wbi_info.img_key + self.wbi_info.sub_key)
 
     def get_wbi_info(self) -> models.WbiInfo:
-        resp = requests.get(
-            self.api_get_nav,
-            headers=helper.user_agent_headers(),
-        )
+        with self.client.new() as c:
+            resp = c.get(self.api_get_nav)
 
-        resp.raise_for_status()
+            wbi_img = resp.json().get("data", {}).get("wbi_img", None)
 
-        wbi_img = resp.json().get("data", {}).get("wbi_img", None)
+            if wbi_img is None:
+                raise ValueError("wbi_img not found")
 
-        if wbi_img is None:
-            raise ValueError("wbi_img not found")
-
-        return models.WbiInfo(**wbi_img)
+            return models.WbiInfo(**wbi_img)
 
     def get_mixin_key(self, e: str) -> str:
         indices = [
@@ -544,15 +542,19 @@ class AuthorSpider(BaseBilibiliPageSpider):
 
         params = "&".join([params, f"w_rid={wrid}", f"wts={wts}"])
 
-        kwargs = super().get_request_args()
-
-        # NOTE: Not sure if this will work
-        kwargs["headers"]["accept-language"] = "en,zh-CN;q=0.9,zh;q=0.8"
-
-        if self.sess_data is not None:
-            kwargs["cookies"] = {"SESSDATA": self.sess_data}
-
         return {
-            **kwargs,
             "params": params,
         }
+
+
+# TODO
+# class AuthorFeedSpaceSpider(BaseBilibiliSpider):
+#     api = ...
+#     name = "feed"
+#     alias = "up主动态"
+
+#     db_action_on_save = spider.DbActionOnSave.UPDATE_OR_CREATE
+
+#     response_model = ...
+#     database_model = ...
+#     item_model = ...

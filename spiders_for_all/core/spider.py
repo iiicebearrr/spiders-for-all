@@ -14,10 +14,12 @@ from sqlalchemy import orm
 from sqlalchemy.dialects import sqlite
 
 from spiders_for_all.conf import settings
+from spiders_for_all.core.client import HttpClient
+from spiders_for_all.core.response import Response
 from spiders_for_all.database.session import SessionManager
 from spiders_for_all.utils.decorator import retry
-from spiders_for_all.utils.helper import not_none_else, user_agent_headers
-from spiders_for_all.utils.logger import default_logger
+from spiders_for_all.utils.helper import not_none_else
+from spiders_for_all.utils.logger import LoggerMixin, default_logger
 
 SPIDERS: dict[str, dict[str, t.Type[BaseSpider]]] = {}
 
@@ -52,15 +54,16 @@ class Spider(t.Protocol):
         pass
 
 
-class BaseSpider:
+class BaseSpider(LoggerMixin):
     api: str
     name: str
     alias: str
     platform: str
+    description: str = ""
 
     database_model: t.Type[orm.DeclarativeBase]
     item_model: t.Type[BaseModel]
-    response_model: t.Type[BaseModel] | None = None
+    response_model: t.Type[Response] | None = None
 
     logger: logging.Logger = default_logger
     session_manager: SessionManager
@@ -76,25 +79,21 @@ class BaseSpider:
         logger: logging.Logger | None = None,
         db_action_on_init: DbActionOnInit | None = None,
         db_action_on_save: DbActionOnSave | None = None,
-        max_retries: int = settings.REQUEST_MAX_RETRIES,
-        retry_interval: int = settings.REQUEST_RETRY_INTERVAL,
-        retry_step: int = settings.REQUEST_RETRY_STEP,
         **kwargs,
     ):
-        self.logger = logger or self.__class__.logger
+        super().__init__(logger=logger or self.__class__.logger)
         self.db_action_on_init = not_none_else(
             db_action_on_init, self.db_action_on_init
         )
         self.db_action_on_save = not_none_else(
             db_action_on_save, self.db_action_on_save
         )
-        self.max_retries = int(max_retries)
-        self.retry_interval = int(retry_interval)
-        self.retry_step = int(retry_step)
         self.session = self.session_manager.session
 
         self.check_implementation()
         self.check_db()
+
+        self.client = HttpClient(logger=self.logger)
 
     def check_implementation(self):
         attrs_required = [
@@ -121,23 +120,14 @@ class BaseSpider:
             pass
 
     def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
         if hasattr(cls, "name") and hasattr(cls, "alias") and hasattr(cls, "platform"):
             if cls.platform not in SPIDERS:
                 SPIDERS[cls.platform] = {}
 
             spiders = SPIDERS[cls.platform]
 
-            if cls.name in spiders:
-                raise ValueError(
-                    f"Duplicate spider name: {cls.name} for platform: {cls.platform}"
-                )
             spiders[cls.name] = cls
 
-            if cls.alias in spiders:
-                raise ValueError(
-                    f"Duplicate spider alias: {cls.alias} for platform: {cls.platform}"
-                )
             spiders[cls.alias] = cls
 
     def before(self):
@@ -152,35 +142,16 @@ class BaseSpider:
         """
         self.info(f"[{'Finished':^10}]: {self.name}[{self.alias}]")
 
-    def request(self, method: str = "GET") -> requests.Response:
-        @retry(
-            max_retries=self.max_retries,
-            interval=self.retry_interval,
-            step=self.retry_step,
-        )
-        def _request():
-            return self.send_request(method)
-
-        return _request()
-
-    def send_request(self, method: str = "GET") -> requests.Response:
-        req_kwargs = self.get_request_args()
-
-        self.debug(f"==> {method.upper()} {self.api}: {req_kwargs}")
-        resp = requests.request(method, self.api, **req_kwargs)
-        self.debug(f"<== {method.upper()} {resp.request.url}: {resp.status_code}")
-        resp.raise_for_status()
-
-        return resp
-
     def validate_response(
         self, response: requests.Response
     ) -> BaseModel | requests.Response:
         if self.response_model is not None:
             json_data = response.json()
 
-            self.debug(f"<== Response json: {json_data}")
-            return self.response_model(**json_data)
+            # self.debug(f"<== Response json: {json_data}")
+            ret = self.response_model(**json_data)
+            ret.raise_for_status()
+            return ret
         return response
 
     def get_items_from_response(
@@ -188,8 +159,31 @@ class BaseSpider:
     ) -> t.Iterable[BaseModel]:
         raise NotImplementedError()
 
+    def _get_items(self) -> t.Iterable[BaseModel]:
+        # Note: get_items_from_response and validate_response should be retried either if failed
+        @retry(
+            max_retries=self.client.retry_settings.get(
+                "max_retries", settings.REQUEST_MAX_RETRIES
+            ),
+            interval=self.client.retry_settings.get(
+                "retry_interval", settings.REQUEST_RETRY_INTERVAL
+            ),
+            step=self.client.retry_settings.get(
+                "retry_step", settings.REQUEST_RETRY_STEP
+            ),
+        )
+        def wrapper():
+            return self.get_items_from_response(
+                self.validate_response(
+                    self.client.request("GET", self.api, **self.get_request_args())
+                )
+            )
+
+        return wrapper()  # type: ignore
+
     def get_items(self) -> t.Iterable[BaseModel]:
-        yield from self.get_items_from_response(self.validate_response(self.request()))
+        with self.client:
+            yield from self._get_items()  # type: ignore
 
     def save_items(self, items: t.Iterable[BaseModel]):
         if self.db_action_on_save == DbActionOnSave.DELETE_AND_CREATE:
@@ -205,7 +199,8 @@ class BaseSpider:
             s.execute(sa.delete(self.database_model))
             for batched_items in batched(items, self.insert_batch_size):
                 s.add_all(map(self.create_db_item, batched_items))
-            s.commit()
+                s.commit()
+                self.info(f"Insert {len(batched_items)} items...")
 
     def create_db_item(self, item: BaseModel) -> orm.DeclarativeBase:
         return self.database_model(**self.item_to_dict(item))
@@ -215,47 +210,29 @@ class BaseSpider:
 
     def update_or_create_items(self, items: t.Iterable[BaseModel]):
         """Update or create items"""
-        insert_stmt = sqlite.insert(self.database_model).values(
-            [self.item_to_dict(item) for item in items]
-        )
-
-        on_duplicate_key_stmt = insert_stmt.on_conflict_do_update(
-            set_={
-                field: getattr(insert_stmt.excluded, field)
-                for field in self.item_model.model_fields
-            }
-        )
-
         with self.session() as s:
-            s.execute(on_duplicate_key_stmt)
-            s.commit()
+            for batched_items in batched(items, self.insert_batch_size):
+                insert_stmt = sqlite.insert(self.database_model).values(
+                    [self.item_to_dict(item) for item in batched_items]
+                )
 
-    def log(self, msg: str, level: int = settings.LOG_LEVEL):
-        self.logger.log(level, msg)
+                on_duplicate_key_stmt = insert_stmt.on_conflict_do_update(
+                    set_={
+                        field: getattr(insert_stmt.excluded, field)
+                        for field in self.item_model.model_fields
+                    }
+                )
 
-    def debug(self, msg: str):
-        self.logger.debug(msg)
-
-    def info(self, msg: str):
-        self.logger.info(msg)
-
-    def warning(self, msg: str):
-        self.logger.warning(msg)
-
-    def error(self, msg: str):
-        self.logger.error(msg, exc_info=True)
-
-    def critical(self, msg: str):
-        self.logger.critical(msg)
+                s.execute(on_duplicate_key_stmt)
+                s.commit()
+                self.info(f"Create or update {len(batched_items)} items...")
 
     def get_request_args(self) -> dict:
-        return {
-            "headers": user_agent_headers(),
-        }
+        return {}
 
     @classmethod
     def string(cls) -> str:
-        return f"<Spider {cls.platform} {cls.name}({cls.alias})>"
+        return f"<{cls.platform}> {cls.name}({cls.alias}){f": {cls.description}" if cls.description else ""}"
 
     def run(self):
         self.before()
@@ -263,7 +240,22 @@ class BaseSpider:
         self.after()
 
 
-class PageSpider(BaseSpider):
+class RateLimitMixin:
+    def sleep(self, sleep_before_next_request: SleepInterval | None = None):
+        match sleep_before_next_request:
+            case int() | str():
+                time.sleep(float(sleep_before_next_request))
+            case float():
+                time.sleep(sleep_before_next_request)
+
+            case tuple():
+                start, end = sleep_before_next_request
+                time.sleep(random.randrange(start=start, stop=end))
+            case _:
+                pass
+
+
+class PageSpider(BaseSpider, RateLimitMixin):
     page_size: int = 20
     page_field: str = "page"
     page_size_field: str = "page_size"
@@ -293,29 +285,38 @@ class PageSpider(BaseSpider):
         )
 
     def get_items(self) -> t.Iterable[BaseModel]:
-        return_items_length = self.page_size
+        with self.client:
+            return_items_length = self.page_size
 
-        while return_items_length == self.page_size:
-            items = list(
-                self.get_items_from_response(self.validate_response(self.request()))
-            )
-            yield from items
+            count = 0
 
-            # Stop if total specified
-            if (
-                self.end_page_number is not None
-                and self.page_number == self.end_page_number
-            ):
-                break
+            while return_items_length == self.page_size:
+                items = list(self._get_items())
 
-            return_items_length = len(items)
-            self.page_number += 1
+                if self.total is None:
+                    yield from items
+                else:
+                    for item in items:
+                        yield item
+                        count += 1
+                        if count == self.total:
+                            break
 
-            if (
-                self.sleep_before_next_request is not None
-                and return_items_length == self.page_size
-            ):
-                self.sleep()
+                # Stop if total specified
+                if (
+                    self.end_page_number is not None
+                    and self.page_number == self.end_page_number
+                ):
+                    break
+
+                return_items_length = len(items)
+                self.page_number += 1
+
+                if (
+                    self.sleep_before_next_request is not None
+                    and return_items_length == self.page_size
+                ):
+                    self.sleep(self.sleep_before_next_request)
 
     @classmethod
     def calculate_end_page(
@@ -336,21 +337,8 @@ class PageSpider(BaseSpider):
             - 1
         )
 
-    def sleep(self):
-        match self.sleep_before_next_request:
-            case int():
-                time.sleep(float(self.sleep_before_next_request))
-            case float():
-                time.sleep(self.sleep_before_next_request)
-            case tuple():
-                start, end = self.sleep_before_next_request
-                time.sleep(random.randrange(start=start, stop=end))
-            case _:
-                raise TypeError(f"Invalid type: {type(self.sleep_before_next_request)}")
-
     def get_request_args(self) -> dict:
         return {
-            **super().get_request_args(),
             "params": {
                 self.page_field: self.page_number,
                 self.page_size_field: self.page_size,

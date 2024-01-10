@@ -5,11 +5,37 @@ import click
 from rich import print, table
 from sqlalchemy import create_engine, orm, text
 
-from spiders_for_all.database import manager, schema
+from spiders_for_all.database import schema
 from spiders_for_all.spiders import bilibili, xhs
 
 # regex to match tablename from sql, case insensitive
 RGX_FIND_TABLENAME = re.compile(r"FROM\s+([^\s;]+)", re.IGNORECASE)
+
+
+def is_select(sql: str):
+    return sql.lstrip().upper().startswith("SELECT")
+
+
+def is_dml(sql: str):
+    return any(
+        [sql.lstrip().upper().startswith(s) for s in ["INSERT", "UPDATE", "DELETE"]]
+    )
+
+
+def is_ddl(sql: str):
+    return any(
+        [sql.lstrip().upper().startswith(s) for s in ["CREATE", "ALTER", "DROP"]]
+    )
+
+
+def get_session_manager(module: str):
+    if module == "bilibili":
+        return bilibili.db.SessionManager
+    elif module == "xhs":
+        return xhs.db.SessionManager
+    else:
+        print(f"[red bold]Unknown or unsupported module: {module}")
+        exit(1)
 
 
 class Base(orm.DeclarativeBase):
@@ -60,17 +86,35 @@ def cli():
     pass
 
 
-@cli.command("query-schema")
+@cli.command("sql")
 @click.argument("sql", type=str)
-def query(sql: str):
+@click.option(
+    "--database", "-d", type=click.Choice(["bilibili", "xhs"]), required=False
+)
+def execute(sql: str, database: str | None = None):
     _init_schemas()
+
+    if is_ddl(sql):
+        if not database:
+            print(
+                "[red bold]DDL statement must specify a database[/red bold] (bilibili or xhs)"
+            )
+            exit(1)
+        session_manager = get_session_manager(database)
+
+        with session_manager.session() as s:
+            s.execute(text(sql))
+            s.commit()
+            print("[bold]Finished[/bold]")
+            exit(0)
+
     tablename = RGX_FIND_TABLENAME.search(sql)
     if tablename is None:
         print(
             "[red bold]Table not found. Run `python -m spiders_for_all database list-schema` to check the tablename[/red bold]"
         )
         exit(1)
-    tablename = tablename.group(1)
+    tablename = tablename.group(1)  # type: ignore
     with session() as s:
         module = s.query(Schemas).filter_by(tablename=tablename).first()
         if module is None:
@@ -78,22 +122,29 @@ def query(sql: str):
                 "[red bold]Module not found. Run `python -m spiders_for_all database list-schema` to check the module and tablename[/red bold]"
             )
             exit(1)
-    module = module.module.split(".")[-1]
-    dql = manager.DQL(raw_sql=sql)
-    if module == "bilibili":
-        session_manager = bilibili.db.SessionManager
-    elif module == "xhs":
-        session_manager = xhs.db.SessionManager
-    else:
-        print(f"[red bold]Unknown or unsupported module: {module}[/red bold]")
-        exit(1)
-    rows = dql.execute(session_manager)
-    if not rows:
-        print("[red bold]No result[/red bold]")
-        exit(1)
-    headers = rows[0]._asdict().keys()
-    t = table.Table(*headers, title="Results")
-    for row in rows:
+    module_name = module.module.split(".")[-1]
+    session_manager = get_session_manager(module_name)
+    stmt = text(sql)
+
+    with session_manager.session() as s:
+        results = s.execute(stmt)
+        if is_select(sql):
+            results = results.fetchall()
+        elif is_dml(sql):
+            s.commit()
+            print("[bold]Finished[/bold]")
+            exit(0)
+        else:
+            print("[red bold]Unknown statement[/red bold]")
+            exit(1)
+
+    count = len(results)
+    if count == 0:
+        print("[bold light_green]No results[/bold light_green]")
+        exit(0)
+    headers = results[0]._asdict().keys()
+    t = table.Table(*headers, title=f"{count} Results")
+    for row in results:
         t.add_row(*[str(v) for v in row])
     print(t)
 

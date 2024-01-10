@@ -1,4 +1,8 @@
-API_PREFIX = "https://www.bilibili.com/video/"
+MAIN_PAGE = "https://www.bilibili.com/"
+
+REFERER = "https://www.bilibili.com"
+
+API_GET_VIDEO_INFO = "https://www.bilibili.com/video/{bvid}"
 
 HIGHEST_QUALITY = 0
 

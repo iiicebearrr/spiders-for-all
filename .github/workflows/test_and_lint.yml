@@ -29,18 +29,22 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install
+          apt-get install ffmpeg -y
       - name: ruff
         run: |
           poetry run ruff . --fix --exit-non-zero-on-fix
       - name: mypy
         run: |
           poetry run mypy spiders_for_all
-      - name: Run code coverage
+      - name: Run example
         run: |
-          poetry run coverage run -m unittest discover -s tests
+          bash example/run.sh
+      - name: Run tests
+        run: |
+          poetry run python -m unittest discover -s tests
 
-      - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v3
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # - name: Upload coverage reports to Codecov with GitHub Action
+      #   uses: codecov/codecov-action@v3
+      #   env:
+      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 

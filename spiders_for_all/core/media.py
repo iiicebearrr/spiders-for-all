@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from functools import cached_property
 
 from pydantic import HttpUrl
 
@@ -13,6 +14,7 @@ class MediaType(Enum):
 class Media:
     media_type: MediaType
     suffix: str
+    description: str = ""
 
     def __init__(
         self,
@@ -27,9 +29,11 @@ class Media:
         self.complete_url = complete_url
         self.base_url = base_url
         self.url_id = url_id
-        self.name = name or self.media_type
+        self.name = name or "NAME NOT SET"
 
-        self.url = self.get_url()
+    @cached_property
+    def url(self) -> str:
+        return str(self.get_url())
 
     def get_url(self) -> HttpUrl:
         if self.complete_url:
@@ -38,58 +42,63 @@ class Media:
             return HttpUrl(self.base_url.rstrip("/") + "/" + self.url_id.lstrip("/"))
         raise ValueError("Media url is not set correctly.")
 
+    def __str__(self) -> str:
+        if not self.description:
+            return f"<{self.name}>"
+        return f"<{self.name} {self.description}>"
 
-class Video(Media):
+
+class Mp4(Media):
     media_type = MediaType.VIDEO
-    suffix = "mp4"
+    suffix = ".mp4"
 
 
-class Audio(Media):
+class Mp3(Media):
     media_type = MediaType.AUDIO
-    suffix = "mp3"
+    suffix = ".mp3"
 
 
 class Image(Media):
     media_type = MediaType.IMAGE
-    suffix = "img"
+    suffix = ".img"
 
 
 class Text(Media):
     media_type = MediaType.TEXT
-    suffix = "txt"
+    suffix = ".txt"
 
 
 class JPG(Image):
-    suffix = "jpg"
+    suffix = ".jpg"
 
 
 class PNG(Image):
-    suffix = "png"
+    suffix = ".png"
 
 
 class GIF(Image):
-    suffix = "gif"
+    suffix = ".gif"
 
 
 class WEBP(Image):
-    suffix = "webp"
+    suffix = ".webp"
 
 
 class BMP(Image):
-    suffix = "bmp"
+    suffix = ".bmp"
 
 
 class TIFF(Image):
-    suffix = "tiff"
+    suffix = ".tiff"
 
 
 class ICO(Image):
-    suffix = "ico"
+    suffix = ".ico"
 
 
 class HTML(Text):
-    suffix = "html"
+    suffix = ".html"
 
 
 class JSON(Text):
-    suffix = "json"
+    suffix = ".json"

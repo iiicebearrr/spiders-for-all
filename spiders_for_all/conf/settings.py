@@ -37,14 +37,23 @@ CPU_COUNT = multiprocessing.cpu_count()
 
 # NOTE: dm_img_str and dm_cover_img_str seem to be some kind of browser fingerprint, and they seem to be static values
 # NOTE: Reference: https://github.com/SocialSisterYi/bilibili-API-collect/issues/868
-BILIBILI_PARAM_DM_IMG_STR = env.str(
-    "BILIBILI_PARAM_DM_IMG_STR", "V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ"
-)
-BILIBILI_PARAM_DM_COVER_IMG_STR = env.str(
-    "BILIBILI_PARAM_DM_COVER_IMG_STR",
-    "QU5HTEUgKEludGVsIEluYy4sIEludGVsKFIpIElyaXMoVE0pIFBsdXMgR3JhcGhpY3MgNjU1LCBPcGVuR0wgNC4xKUdvb2dsZSBJbmMuIChJbnRlbCBJbmMuKQ",
-)
 
-REQUEST_MAX_RETRIES = env.int("REQUEST_MAX_RETRIES", 3)
+with env.prefixed("BILIBILI_"):
+    BILIBILI_PARAM_DM_IMG_STR = env.str(
+        "DM_IMG_STR", "V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ"
+    )
+    BILIBILI_PARAM_DM_COVER_IMG_STR = env.str(
+        "DM_COVER_IMG_STR",
+        "QU5HTEUgKEludGVsIEluYy4sIEludGVsKFIpIElyaXMoVE0pIFBsdXMgR3JhcGhpY3MgNjU1LCBPcGVuR0wgNC4xKUdvb2dsZSBJbmMuIChJbnRlbCBJbmMuKQ",
+    )
+
+
+with env.prefixed("XHS_"):
+    XHS_COOKIES = env.json("COOKIES", "{}", subcast_values=str)
+    XHS_HEADERS = env.json("HEADERS", "{}", subcast_values=str)
+
+REQUEST_MAX_RETRIES = env.int("REQUEST_MAX_RETRIES", 10)
 REQUEST_RETRY_INTERVAL = env.int("REQUEST_RETRY_INTERVAL", 30)
 REQUEST_RETRY_STEP = env.int("REQUEST_RETRY_STEP", 10)
+
+HTTP_PROXIES = env.json("HTTP_PROXIES", "{}", subcast_values=str)

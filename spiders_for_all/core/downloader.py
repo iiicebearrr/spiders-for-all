@@ -7,20 +7,39 @@ from functools import cached_property
 from pathlib import Path
 from traceback import format_exc
 
-import requests
 from rich import progress as p
 from rich.console import Console
 
 from spiders_for_all import const
 from spiders_for_all.conf import settings
-from spiders_for_all.core import media
+from spiders_for_all.core import media as base_media
+from spiders_for_all.core.client import HttpClient
 from spiders_for_all.utils import helper
-from spiders_for_all.utils.decorator import retry
 from spiders_for_all.utils.logger import default_logger as logger
 
 Size = t.NewType("Size", int)
 
 NOT_SET = object()
+
+
+class DownloaderKwargs(t.TypedDict):
+    filename: t.NotRequired[str | None]
+    disable_terminal_log: t.NotRequired[bool]
+    from_cli: t.NotRequired[bool]
+    request_method: t.NotRequired[str]
+    chunk_size: t.NotRequired[int]
+    remove_temp_dir: t.NotRequired[bool]
+    exit_on_download_failed: t.NotRequired[bool]
+
+
+class MultipleDownloaderKwargs(t.TypedDict):
+    from_cli: t.NotRequired[bool]
+    remove_downloader_save_dir: t.NotRequired[bool]
+    move_output_file_to_parent_dir: t.NotRequired[bool]
+    move_log_file_to_log_dir: t.NotRequired[bool]
+    exit_on_download_failed: t.NotRequired[bool]
+    max_workers: t.NotRequired[int]
+    logger: t.NotRequired[logging.Logger]
 
 
 def get_filename_by_dt() -> str:
@@ -133,57 +152,45 @@ class LinerTask(BaseTask):
 class DownloadTask(BaseTask):
     def __init__(
         self,
-        url: str,
-        save_dir: Path | str,
-        media: media.Media,
+        media: base_media.Media,
+        output_file: Path | str,
         *args,
         chunk_size: int = const.CHUNK_SIZE,
         request_method: str = "GET",
-        max_retries: int = settings.REQUEST_MAX_RETRIES,
-        retry_interval: int = settings.REQUEST_RETRY_INTERVAL,
-        retry_step: int = settings.REQUEST_RETRY_STEP,
+        logger: logging.Logger | Console = logger,
+        client: HttpClient | None = None,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
-        self.url = url
-        self.save_dir = Path(save_dir) if isinstance(save_dir, str) else save_dir
+        self.media = media
+        self.output_file = (
+            Path(output_file) if isinstance(output_file, str) else output_file
+        )
         self.chunk_size = chunk_size
         self._total_size: int | None = None
-        self.media = media
         self.request_method = request_method
-        self.max_retries = max_retries
-        self.retry_interval = retry_interval
-        self.retry_step = retry_step
+        self.logger = logger
+
+        self.client = client or HttpClient(
+            logger=self.logger,
+        )
 
     def __str__(self) -> str:
-        return f"<{self.media.media_type}> {self.media.name or self.url}"
-
-    def get_request_args(self) -> dict:
-        return {
-            "headers": helper.user_agent_headers(),
-        }
+        return f"<Type: {self.media.media_type._name_}> {self.media.name or self.media.url}"
 
     def request(self) -> t.Generator[Size | bytes, None, None]:
-        @retry(
-            max_retries=self.max_retries,
-            interval=self.retry_interval,
-            step=self.retry_step,
-        )
-        def _request():
-            with requests.request(
-                self.request_method, self.url, stream=True, **self.get_request_args()
+        with self.client:
+            with self.client.request(
+                self.request_method, self.media.url, stream=True
             ) as r:
-                r.raise_for_status()
                 if self._total_size is None:
                     self._total_size = int(r.headers.get("Content-Length", 0))
-                    yield self._total_size
+                    yield self._total_size  # type: ignore
                 for chunk in r.iter_content(chunk_size=self.chunk_size):
                     yield chunk
 
-        yield from _request()
-
     def start(self) -> t.Generator[Size | bytes, None, None]:
-        with open(self.save_dir, "wb") as f:
+        with open(self.output_file, "wb") as f:
             generator = self.request()
             total_size = next(generator)
             yield total_size
@@ -198,31 +205,24 @@ class BaseDownloader:
     def __init__(
         self,
         save_dir: Path | str,
-        media: media.Media,
         *args,
+        media: base_media.Media | None = None,
         filename: str | None = None,
         disable_terminal_log: bool = False,
         from_cli: bool = True,
         request_method: str = "GET",
         chunk_size: int = const.CHUNK_SIZE,
-        max_retries: int = settings.REQUEST_MAX_RETRIES,
-        retry_interval: int = settings.REQUEST_RETRY_INTERVAL,
-        retry_step: int = settings.REQUEST_RETRY_STEP,
         remove_temp_dir: bool = True,
         exit_on_download_failed: bool = True,
         **kwargs,
     ) -> None:
         self.save_dir = Path(save_dir) if isinstance(save_dir, str) else save_dir
         self.temp_dir = self.save_dir / ".temp"
-        self.media = media
         self.filename = filename
         self.disable_terminal_log = disable_terminal_log
         self.from_cli = from_cli
         self.request_method = request_method
         self.chunk_size = chunk_size
-        self.max_retries = max_retries
-        self.retry_interval = retry_interval
-        self.retry_step = retry_step
         self.remove_temp_dir = remove_temp_dir
         self.exit_on_download_failed = exit_on_download_failed
 
@@ -231,25 +231,42 @@ class BaseDownloader:
         self.tasks: list[LinerTask] = []
         self.download_tasks: list[DownloadTask] = []
 
-        self.console: Console = self.get_console()
-        self.log_file = self.create_log_file()
-
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
+        self.log_file = self.create_log_file()
+        self.media = media or self._media
+
+        self._prepared = False
+
+        self.console: Console = self.get_console()
+        self.client = HttpClient(logger=self.console)
         super().__init__(*args, **kwargs)
 
     @cached_property
+    def _media(self) -> base_media.Media:
+        return self.get_media()
+
+    @property
     def name(self) -> str:
         return self.__str__()
+
+    def get_media(self) -> base_media.Media:
+        raise ValueError("Media is not set.")
 
     def get_console(self) -> Console:
         if self.disable_terminal_log:
             return Console(file=open(self.log_file, "w"))
         return Console(record=True)
 
+    def get_log_filename(self) -> str:
+        return get_filename_by_dt()
+
     def create_log_file(self) -> Path:
-        log_file = self.save_dir / f"{get_filename_by_dt()}.log"
+        log_filename = Path(self.get_log_filename())
+        if log_filename.suffix != ".log":
+            log_filename = log_filename.with_suffix(".log")
+        log_file = self.save_dir / log_filename
         log_file.touch(exist_ok=True)
         return log_file
 
@@ -279,7 +296,7 @@ class BaseDownloader:
     ):
         if level >= settings.LOG_LEVEL:
             self.console.log(
-                f"{self.name if log_downloader_name else ''}[{logging.getLevelName(level)}] {msg}"
+                f"{self.name if log_downloader_name else ''} [{logging.getLevelName(level)}] {msg}"
             )
             if exc_info:
                 self.console.log(
@@ -294,7 +311,7 @@ class BaseDownloader:
             )
 
     def prepare_tasks(self):
-        pass
+        self._prepared = True
 
     def run_tasks(self):
         total_tasks = len(self.tasks)
@@ -309,9 +326,12 @@ class BaseDownloader:
             task.start()
             yield task
 
+    def after_download(self):
+        pass
+
     def download(
-        self, yield_tasks: bool = False
-    ) -> t.Optional[t.Generator[LinerTask, None, None]]:
+        self, iter_tasks: bool = False
+    ) -> t.Optional[t.Generator[LinerTask, None, None]]:  # type: ignore
         """Entry point of the downloader
 
         Args:
@@ -327,12 +347,12 @@ class BaseDownloader:
         self.state = DownloaderState.STARTED
 
         try:
-            self.prepare_tasks()
+            if not self._prepared:
+                self.prepare_tasks()
+            if iter_tasks:
+                return self.iter_tasks()
 
-            if not yield_tasks:
-                self.run_tasks()
-            else:
-                yield from self.iter_tasks()
+            self.run_tasks()
 
         except KeyboardInterrupt:
             raise
@@ -355,6 +375,7 @@ class BaseDownloader:
         finally:
             if self.console.record:
                 self.console.save_text(str(self.log_file))
+            self.after_download()
 
     def run_download_task(self, task: DownloadTask):
         generator = task.start()
@@ -426,34 +447,37 @@ class BaseDownloader:
                     exit(1)
 
     def __str__(self) -> str:
-        return f"<Downloader {self.__class__.name} {self.state}>"
+        return f"<{self.__class__.__name__}>"
 
 
 class BaseBatchDownloader:
     def __init__(
         self,
-        downloaders: list[BaseDownloader],
         save_dir: Path | str,
         *args,
         from_cli: bool = True,
-        request_method: str = "GET",
-        chunk_size: int = const.CHUNK_SIZE,
-        max_retries: int = settings.REQUEST_MAX_RETRIES,
-        retry_interval: int = settings.REQUEST_RETRY_INTERVAL,
-        retry_step: int = settings.REQUEST_RETRY_STEP,
         remove_downloader_save_dir: bool = True,
+        move_output_file_to_parent_dir: bool = True,
+        move_log_file_to_log_dir: bool = True,
         exit_on_download_failed: bool = True,
         max_workers: int = settings.CPU_COUNT,
         logger: logging.Logger = logger,
+        max_retries: int = settings.REQUEST_MAX_RETRIES,
+        retry_interval: int = settings.REQUEST_RETRY_INTERVAL,
+        retry_step: int = settings.REQUEST_RETRY_STEP,
         **kwargs,
     ):
-        self.downloaders = downloaders
         self.save_dir = Path(save_dir) if isinstance(save_dir, str) else save_dir
         self.from_cli = from_cli
         self.max_workers = max_workers
         self.exit_on_download_failed = exit_on_download_failed
         self.logger = logger
         self.remove_downloader_save_dir = remove_downloader_save_dir
+        self.move_output_file_to_parent_dir = move_output_file_to_parent_dir
+        self.move_log_file_to_log_dir = move_log_file_to_log_dir
+        self.max_retries = max_retries
+        self.retry_interval = retry_interval
+        self.retry_step = retry_step
         self.log_dir = self.save_dir / "logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -462,7 +486,14 @@ class BaseBatchDownloader:
 
         super().__init__(*args, **kwargs)
 
-    def get_downloader_save_dir(self, idx: int) -> Path:
+    @cached_property
+    def downloaders(self) -> list[BaseDownloader]:
+        return self.get_downloaders()
+
+    def get_downloaders(self) -> list[BaseDownloader]:
+        raise NotImplementedError()
+
+    def get_downloader_save_dir(self, idx: int | str) -> Path:
         return self.save_dir / f"downloader-{idx}"
 
     def run_downloaders_directly(self):
@@ -482,7 +513,7 @@ class BaseBatchDownloader:
             p.MofNCompleteColumn(),
             p.TaskProgressColumn(),
             p.TimeElapsedColumn(),
-            p.TextColumn("{tasks.fields[event]}"),
+            p.TextColumn("{task.fields[event]}"),
             refresh_per_second=2,
         ) as progress:
             overall_task = progress.add_task(
@@ -523,7 +554,7 @@ class BaseBatchDownloader:
         )
 
         try:
-            for idx, task in enumerate(downloader.iter_tasks()):
+            for idx, task in enumerate(downloader.download(iter_tasks=True)):  # type: ignore
                 progress.update(
                     task_id,
                     completed=idx + 1,
@@ -534,6 +565,9 @@ class BaseBatchDownloader:
             raise
 
         except:  # noqa: E722
+            self.logger.debug(
+                f"Error for downloader {downloader}: {format_exc()}",
+            )
             progress.update(task_id=task_id, event="[red bold] Failed!")
             self.failed_count += 1
         else:
@@ -541,19 +575,21 @@ class BaseBatchDownloader:
             progress.update(task_id, event="[green bold] Finished!")
             self.success_count += 1
         finally:
-            downloader.log_file = downloader.log_file.rename(
-                self.log_dir / downloader.log_file.name
-            )
+            if self.move_log_file_to_log_dir:
+                downloader.log_file = downloader.log_file.rename(
+                    self.log_dir / downloader.log_file.name
+                )
             if downloader.state is DownloaderState.FAILED:
-                logger.error(
+                self.logger.error(
                     f"<{downloader.name}> Failed, please check the log file: {downloader.log_file} for detail",
                 )
             else:
-                downloader.output_file = downloader.output_file.rename(
-                    self.save_dir / downloader.output_file.name
-                )
-                logger.info(
-                    f"<{downloader.name}> Success, file saved to: {downloader.output_file}"
+                if self.move_output_file_to_parent_dir:
+                    downloader.output_file = downloader.output_file.rename(
+                        self.save_dir / downloader.output_file.name
+                    )
+                self.logger.info(
+                    f"{downloader.name} Success, file saved to: {downloader.output_file}"
                 )
             self.clean_downloader_save_dir(downloader)
             progress.remove_task(task_id)

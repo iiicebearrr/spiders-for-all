@@ -9,7 +9,7 @@ from spiders_for_all.spiders.bilibili import (
     analysis,
     const,
     db,
-    download,
+    downloader,
     schema,
     spiders,
 )
@@ -24,7 +24,7 @@ def cli():
     pass
 
 
-@click.option("--name", "-n", help="Spider name", required=True)
+@click.argument("name")
 @click.option(
     "--params",
     "-p",
@@ -86,7 +86,7 @@ def run_spider(
 
             print(f"[bold yellow]{len(bvid_list)} videos found to be downloaded...")
 
-            multiple_downloader = download.MultiThreadDownloader(
+            multiple_downloader = downloader.BilibiliBatchDownloader(
                 bvid_list=bvid_list,
                 save_dir=save_dir,
                 sess_data=sess_data,
@@ -97,11 +97,10 @@ def run_spider(
             multiple_downloader.download()
 
 
-@cli.command()
+@cli.command("list")
 def list_spiders():
     """List all available spiders"""
-    reversed_map = {v: k for k, v in BILIBILI_SPIDERS.items()}
-    for spider in reversed_map:
+    for spider in {v: k for k, v in BILIBILI_SPIDERS.items()}:
         print(f"  - {spider.string()}")
 
 
@@ -152,7 +151,7 @@ def data_analysis(name: str, top_n: int):
     help="Quality of the video to download. Defaults to HIGHEST_QUALITY.",
     required=False,
     type=int,
-    default=download.const.HIGHEST_QUALITY,
+    default=downloader.const.HIGHEST_QUALITY,
 )
 @click.option(
     "--codecs",
@@ -180,19 +179,18 @@ def download_video(
     ffmpeg_params: list[str] | None = None,
 ):
     """Download a video by bvid"""
-    downloader = download.Downloader(
-        bvid,
-        save_dir,
-        filename,
-        remove_temp_dir,
-        sess_data,
-        quality,
-        codecs,
-        ffmpeg_params,
+    _downloader = downloader.BilibiliDownloader(
+        bvid=bvid,
+        save_dir=save_dir,
+        filename=filename,
+        remove_temp_dir=remove_temp_dir,
+        sess_data=sess_data,
+        quality=quality,
+        codecs=codecs,
+        ffmpeg_params=ffmpeg_params,
     )
 
-    with downloader:
-        downloader.download()
+    _downloader.download()
 
 
 @cli.command()
@@ -219,9 +217,9 @@ def download_videos(
 ):
     """Download multiple videos once
 
-    You can do this by providing the list of bvid with `,`, `\n`, `\t`, or space seperated:
+    You can do this by providing the list of bvid with `,`, `\n`, `\t`, or space separated:
 
-    >> python -m spiders_for_all.bilibili download-videos -b BVID1 BVID2 BVID3
+    >> python -m spiders_for_all bilibili download-videos -b BVID1 BVID2 BVID3
 
     Or by providing a file contains bvid data like:
 
@@ -233,7 +231,7 @@ def download_videos(
     BVID2
     ...
 
-    >> python -m spiders_for_all.bilibili download-videos -b bvid.txt
+    >> python -m spiders_for_all bilibili download-videos -b bvid.txt
     """
 
     path_bvid = Path(bvids)
@@ -241,7 +239,7 @@ def download_videos(
     if path_bvid.exists():
         bvids = path_bvid
 
-    multiple_downloader = download.MultiThreadDownloader(
+    multiple_downloader = downloader.BilibiliBatchDownloader(
         bvid_list=bvids, save_dir=save_dir, sess_data=sess_data, max_workers=max_workers
     )
 
@@ -292,7 +290,7 @@ def download_by_author(
         f"[bold yellow]{len(bvids)} videos found to be downloaded for author {mid}..."
     )
 
-    multiple_downloader = download.MultiThreadDownloader(
+    multiple_downloader = downloader.BilibiliBatchDownloader(
         bvid_list=bvids, save_dir=save_dir, sess_data=sess_data, max_workers=max_workers
     )
 

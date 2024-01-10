@@ -56,7 +56,10 @@ class SessionManager:
         )
 
     def create_all(self, models: schema.Models | None = None, check: bool = True):
-        print(f"Create database: {self.filepath}...")
+        if self.filepath.exists():
+            print(f"Using database: {self.filepath}")
+        else:
+            print(f"Create database: {self.filepath}...")
         schema.Base.metadata.create_all(
             self.engine,
             checkfirst=check,

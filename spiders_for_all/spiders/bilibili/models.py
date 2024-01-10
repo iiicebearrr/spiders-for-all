@@ -6,8 +6,10 @@ from functools import cached_property
 
 from pydantic import BaseModel, Field, HttpUrl, conlist, field_serializer
 
+from spiders_for_all.core.response import Response
 
-class BilibiliResponse(BaseModel):
+
+class BilibiliResponse(Response):
     code: int
     data: typing.Any
     message: str | None = None

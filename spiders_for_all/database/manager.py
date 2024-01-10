@@ -1,7 +1,5 @@
 from enum import Enum
-from typing import Protocol, Type
-
-import sqlalchemy as sa
+from typing import Protocol
 
 from spiders_for_all.database import schema, session
 
@@ -15,31 +13,6 @@ class DDLType(Enum):
 class Manager(Protocol):
     def execute(self, s: session.SessionManager):
         pass
-
-
-class DQL:
-    def __init__(
-        self,
-        schema: Type[schema.Base] | None = None,
-        raw_sql: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        **params,
-    ) -> None:
-        self.schema = schema
-        if raw_sql is not None:
-            self.stmt = sa.text(raw_sql)
-
-        else:
-            self.stmt = sa.select(schema).filter_by(**params)
-            if limit is not None:
-                self.stmt = self.stmt.limit(limit)
-            if offset is not None:
-                self.stmt = self.stmt.offset(offset)
-
-    def execute(self, s: session.SessionManager):
-        with s.session() as _s:
-            return _s.execute(self.stmt).fetchall()
 
 
 class DDL:

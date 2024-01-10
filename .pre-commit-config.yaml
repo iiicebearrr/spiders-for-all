@@ -11,11 +11,3 @@ repos:
     rev: 5.13.2  # Use the latest version
     hooks:
       - id: isort
-
-  - repo: local
-    hooks:
-      - id: mypy
-        name: mypy
-        language: system
-        types: [python]
-        entry: mypy

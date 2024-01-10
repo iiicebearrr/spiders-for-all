@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{ include = "spiders_for_all" }]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.12"
 click = "^8.1.7"
 environs = "^9.5.0"
 fake-useragent = "^1.4.0"
@@ -27,6 +27,7 @@ types-requests = "^2.31.0.10"
 pre-commit = "^3.5.0"
 pytest = "^7.4.3"
 isort = "^5.13.2"
+uncurl = "^0.0.11"
 
 [build-system]
 requires = ["poetry-core"]

@@ -1,7 +1,13 @@
 import logging
 import logging.config
+import typing as t
+from traceback import format_exc
+
+from rich import console
 
 from spiders_for_all.conf import settings
+
+LoggerType: t.TypeAlias = console.Console | logging.Logger
 
 LEVEL = settings.LOG_LEVEL
 
@@ -69,3 +75,42 @@ def get_logger(name: str):
 
 
 default_logger = get_logger("default")
+
+
+class LoggerMixin:
+    def __init__(self, logger: LoggerType = default_logger, **kwargs) -> None:
+        self.logger = logger
+
+    def console_log(self, msg: str, level: int = logging.INFO, **kwargs) -> None:
+        _console: console.Console = self.logger  # type: ignore
+        if level >= settings.LOG_LEVEL:
+            msg = f"[{logging.getLevelName(level)}] {msg}"
+            if "exc_info" in kwargs:
+                msg += "\n" + format_exc()
+            _console.log(msg)
+
+    def log(self, msg: str, level: int = logging.INFO, **kwargs) -> None:
+        if isinstance(self.logger, logging.Logger):
+            self.logger.log(level, msg, **kwargs)
+        elif isinstance(self.logger, console.Console):
+            self.console_log(msg, level, **kwargs)
+        else:
+            raise TypeError(
+                f"Logger type must be {logging.Logger} or {console.Console}, "
+                f"but got {type(self.logger)}."
+            )
+
+    def debug(self, msg: str) -> None:
+        self.log(msg, level=logging.DEBUG)
+
+    def info(self, msg: str) -> None:
+        self.log(msg, level=logging.INFO)
+
+    def warning(self, msg: str) -> None:
+        self.log(msg, level=logging.WARNING)
+
+    def error(self, msg: str) -> None:
+        self.log(msg, level=logging.ERROR, exc_info=True)
+
+    def critical(self, msg: str) -> None:
+        self.log(msg, level=logging.CRITICAL, exc_info=True)
