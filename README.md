@@ -64,3 +64,4 @@ pip install spiders-for-all # python 版本 >= 3.12
 # Known Issues
 
 - [ ] 小红书爬取用户投稿的笔记时, 由于小红书签名算法的问题尚未解决, 只能爬取用户投稿的首页数据, 需要下拉加载的数据暂时无法爬取
+- [ ] 低版本的sqlite可能不支持`ON CONFLICT DO UPDATE`语法, 如果遇到该问题请尝试升级sqlite版本 
