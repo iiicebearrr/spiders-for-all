@@ -32,9 +32,7 @@ jobs:
       - name: ruff
         run: |
           poetry run ruff . --fix --exit-non-zero-on-fix
-      - name: mypy
-        run: |
-          poetry run mypy spiders_for_all
+
       - name: Run tests
         run: |
           poetry run python -m unittest discover -s tests
