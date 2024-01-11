@@ -168,8 +168,3 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
         if isinstance(note_or_item, models.XhsAuthorPageNote):
             return note_or_item.note_item
         return note_or_item
-
-
-if __name__ == "__main__":
-    spider = XhsAuthorSpider(uid="5a006564e8ac2b01d7a1e082")
-    spider.run()

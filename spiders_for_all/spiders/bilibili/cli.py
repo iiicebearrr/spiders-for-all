@@ -4,6 +4,7 @@ import click
 import sqlalchemy as sa
 from rich import print
 
+from spiders_for_all.conf import settings
 from spiders_for_all.core.spider import SPIDERS
 from spiders_for_all.spiders.bilibili import (
     analysis,
@@ -54,7 +55,7 @@ def run_spider(
     name: str,
     params: tuple[tuple[str, str]],
     save_dir: Path | None = None,
-    sess_data: str | None = None,
+    sess_data: str | None = settings.BILIBILI_COOKIE_SESS_DATA,
     download_only: bool = False,
     where: str | None = None,
 ):

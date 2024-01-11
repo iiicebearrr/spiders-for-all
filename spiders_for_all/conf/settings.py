@@ -46,6 +46,7 @@ with env.prefixed("BILIBILI_"):
         "DM_COVER_IMG_STR",
         "QU5HTEUgKEludGVsIEluYy4sIEludGVsKFIpIElyaXMoVE0pIFBsdXMgR3JhcGhpY3MgNjU1LCBPcGVuR0wgNC4xKUdvb2dsZSBJbmMuIChJbnRlbCBJbmMuKQ",
     )
+    BILIBILI_COOKIE_SESS_DATA = env.str("SESS_DATA", None)
 
 
 with env.prefixed("XHS_"):
