@@ -2,7 +2,7 @@ FROM python:3.12-bullseye
 
 WORKDIR /app
 
-RUN sed -i 's/deb.debian.org/mirrors.huaweicloud.com/g' /etc/apt/sources.list
+# RUN sed -i 's/deb.debian.org/mirrors.huaweicloud.com/g' /etc/apt/sources.list
 
 RUN apt-get update && apt-get install -y ffmpeg vim fish
 
