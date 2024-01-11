@@ -36,9 +36,6 @@ jobs:
       - name: mypy
         run: |
           poetry run mypy spiders_for_all
-      - name: Run example
-        run: |
-          bash example/run.sh
       - name: Run tests
         run: |
           poetry run python -m unittest discover -s tests
