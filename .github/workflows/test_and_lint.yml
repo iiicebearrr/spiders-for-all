@@ -29,7 +29,6 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install
-          apt-get install ffmpeg -y
       - name: ruff
         run: |
           poetry run ruff . --fix --exit-non-zero-on-fix
