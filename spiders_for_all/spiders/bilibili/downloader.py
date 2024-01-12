@@ -211,18 +211,18 @@ class BilibiliDownloader(base_downloader.BaseDownloader):
         self.temp_video_file = task.output_file
 
     def add_audio_download_task(self):
-        for audio in self.play_info.dash.audio:
-            client = self.get_download_client()
-            self.download_tasks.append(
-                base_downloader.DownloadTask(
-                    base_media.Mp3(
-                        complete_url=audio.base_url,
-                    ),
-                    self.temp_dir / f"audio-{audio.audio_id}.mp4",
-                    logger=logger,
-                    client=client,
-                )
+        audio = self.play_info.dash.audio[0]
+        client = self.get_download_client()
+        self.download_tasks.append(
+            base_downloader.DownloadTask(
+                base_media.Mp3(
+                    complete_url=audio.base_url,
+                ),
+                self.temp_dir / f"audio-{audio.audio_id}.mp4",
+                logger=logger,
+                client=client,
             )
+        )
 
     def prepare_tasks(self):
         self.tasks.append(
