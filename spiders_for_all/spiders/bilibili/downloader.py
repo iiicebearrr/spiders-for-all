@@ -248,9 +248,9 @@ class BilibiliDownloader(base_downloader.BaseDownloader):
                     self.run_download_tasks_directly, name="Download video and audio"
                 )
             )
-        self.tasks.append(
-            base_downloader.LinerTask(self.concat_audio, name="Merge audio files")
-        )
+        # self.tasks.append(
+        #     base_downloader.LinerTask(self.concat_audio, name="Merge audio files")
+        # )
 
         if self.process_func is not None and callable(self.process_func):
             self.tasks.append(
@@ -272,13 +272,13 @@ class BilibiliDownloader(base_downloader.BaseDownloader):
         self.tasks.append(base_downloader.LinerTask(self.clean, name="Clean up"))
         super().prepare_tasks()
 
-    def concat_audio(self):
-        with open(self.temp_audio_file, "wb") as f:
-            for task in filter(
-                lambda t: isinstance(t.media, base_media.Mp3), self.download_tasks
-            ):
-                f.write(task.output_file.read_bytes())
-        self.log(f"Audio file saved to {self.temp_audio_file}")
+    # def concat_audio(self):
+    #     with open(self.temp_audio_file, "wb") as f:
+    #         for task in filter(
+    #             lambda t: isinstance(t.media, base_media.Mp3), self.download_tasks
+    #         ):
+    #             f.write(task.output_file.read_bytes())
+    #     self.log(f"Audio file saved to {self.temp_audio_file}")
 
     def __str__(self) -> str:
         return f"<{self.__class__.__name__} {self.bvid}>"
