@@ -313,46 +313,26 @@ class BaseDownloader:
     def prepare_tasks(self):
         self._prepared = True
 
-    def run_tasks(self):
+    def run_tasks(self) -> t.Generator[LinerTask, None, None]:
         total_tasks = len(self.tasks)
         for task_idx, task in enumerate(self.tasks):
             self.log(
                 f"[{task_idx + 1}/{total_tasks}]: {task.task_name}",
             )
             task.start()
-
-    def iter_tasks(self) -> t.Generator[LinerTask, None, None]:
-        for task in self.tasks:
-            task.start()
             yield task
 
     def after_download(self):
         pass
 
-    def download(
-        self, iter_tasks: bool = False
-    ) -> t.Optional[t.Generator[LinerTask, None, None]]:  # type: ignore
-        """Entry point of the downloader
-
-        Args:
-            yield_tasks (bool, optional): Run the tasks directly of yield it for progress bar. Defaults to False.
-
-        Returns:
-            t.Optional[t.Generator[LinerTask, None, None]]: if yield_tasks is True, return a generator of tasks
-
-        Yields:
-            Iterator[t.Optional[t.Generator[LinerTask, None, None]]]: A generator of tasks
-        """
-
+    def download(self) -> t.Generator[LinerTask, None, None]:  # type: ignore
         self.state = DownloaderState.STARTED
 
         try:
             if not self._prepared:
                 self.prepare_tasks()
-            if iter_tasks:
-                return self.iter_tasks()
 
-            self.run_tasks()
+            yield from self.run_tasks()
 
         except KeyboardInterrupt:
             raise
@@ -553,8 +533,10 @@ class BaseBatchDownloader:
             total=total,
         )
 
+        unexpected = False
+
         try:
-            for idx, task in enumerate(downloader.download(iter_tasks=True)):  # type: ignore
+            for idx, task in enumerate(downloader.download()):
                 progress.update(
                     task_id,
                     completed=idx + 1,
@@ -565,25 +547,35 @@ class BaseBatchDownloader:
             raise
 
         except:  # noqa: E722
+            # Some unexpected error occurred
             self.logger.debug(
                 f"Error for downloader {downloader}: {format_exc()}",
             )
             progress.update(task_id=task_id, event="[red bold] Failed!")
             self.failed_count += 1
-        else:
-            progress.update(overall_task_id, advance=1, event="")
-            progress.update(task_id, event="[green bold] Finished!")
-            self.success_count += 1
+            downloader.state = DownloaderState.FAILED
+            unexpected = True
+
         finally:
-            if self.move_log_file_to_log_dir:
-                downloader.log_file = downloader.log_file.rename(
-                    self.log_dir / downloader.log_file.name
-                )
             if downloader.state is DownloaderState.FAILED:
+                if not unexpected:
+                    progress.update(task_id, event="[red bold] Failed!")
+                    self.failed_count += 1
+
                 self.logger.error(
                     f"<{downloader.name}> Failed, please check the log file: {downloader.log_file} for detail",
                 )
+
             else:
+                progress.update(overall_task_id, advance=1, event="")
+                progress.update(task_id, event="[green bold] Finished!")
+                self.success_count += 1
+
+                if self.move_log_file_to_log_dir:
+                    downloader.log_file = downloader.log_file.rename(
+                        self.log_dir / downloader.log_file.name
+                    )
+
                 if self.move_output_file_to_parent_dir:
                     downloader.output_file = downloader.output_file.rename(
                         self.save_dir / downloader.output_file.name
@@ -591,11 +583,13 @@ class BaseBatchDownloader:
                 self.logger.info(
                     f"{downloader.name} Success, file saved to: {downloader.output_file}"
                 )
-            self.clean_downloader_save_dir(downloader)
+
+                self.clean_downloader_save_dir(downloader)
+
             progress.remove_task(task_id)
             progress.update(
                 overall_task_id,
-                event=f"[bold green]{self.success_count} succeeded {self.failed_count} failed",
+                event=f"[bold green]{self.success_count} succeeded[/] [bold red]{self.failed_count} failed[/]",
             )
 
     def handle_downloader_futures(self, fs: dict[futures.Future, BaseDownloader]):

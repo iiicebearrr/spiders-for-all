@@ -134,8 +134,6 @@ class HttpClient(logger.LoggerMixin):
 
         headers_merged = False
 
-        self.debug(f"==> [{method.upper()}] {url} with kwargs: {kwargs}")
-
         @decorator.retry(
             max_retries=self.retry_settings.get(
                 "max_retries", settings.REQUEST_MAX_RETRIES
@@ -158,6 +156,7 @@ class HttpClient(logger.LoggerMixin):
                     # Some time the user-agent may be too old, so we should change it every time
                     kwargs["headers"].update(**helper.user_agent_headers())
 
+            self.debug(f"==> [{method.upper()}] {url} with kwargs: {kwargs}")
             resp = self.session.request(
                 method=method,
                 url=url,

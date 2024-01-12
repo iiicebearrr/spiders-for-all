@@ -29,7 +29,7 @@ python -m spiders_for_all bilibili download-by-author -m 用户id -s 保存目�
 **根据note_id批量爬取小红书笔记内容**
 
 ```sh
-python -m spiders_for_all xhs download -i note_id1,note_id2,note_id3 -s 保存目录
+python -m spiders_for_all xhs download-by-id -i note_id1,note_id2,note_id3 -s 保存目录
 ```
 
 **更多用法见[Documentation](#documentation)部份**

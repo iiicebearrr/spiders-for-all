@@ -106,6 +106,8 @@ python -m spiders_for_all bilibili run-spider popular -p total 100
 
 **示例: 爬取综合热门前10条视频, 指定`-s`或`--save-dir`在爬取结束后下载视频**
 
+> **注意, 不推荐在爬虫结束后立即下载视频, 因为`run-spider`是一个通用命令，每次执行都会将数据保存在本地, 因此如果直接通过`-s`指定下载目录进行下载, 可能会下载到历史数据, 建议使用`download-by-sql`或增加`-w`参数来指定要下载的视频**
+
 ```sh
 python -m spiders_for_all bilibili run-spider popular -p total 10 -s /tmp
 ```
