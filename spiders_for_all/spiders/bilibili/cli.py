@@ -15,6 +15,7 @@ BILIBILI_SPIDERS = SPIDERS.get("bilibili", {})
 
 @click.group("bilibili")
 def cli():
+    """Commands for bilibili platform"""
     pass
 
 
@@ -184,7 +185,7 @@ def download_video(
         ffmpeg_params=ffmpeg_params,
     )
 
-    _downloader.download()
+    list(_downloader.download())
 
 
 @cli.command("download-by-ids")

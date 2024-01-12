@@ -83,6 +83,7 @@ def _init_schemas():
 
 @click.group("database")
 def cli():
+    """Helpful commands for database management"""
     pass
 
 

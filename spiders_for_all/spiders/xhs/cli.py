@@ -14,6 +14,7 @@ SPIDERS = _SPIDERS.get("xhs", {})
 
 @click.group("xhs")
 def cli():
+    """Commands for xhs platform"""
     pass
 
 
