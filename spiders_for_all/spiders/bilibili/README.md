@@ -9,6 +9,7 @@
   - [1. 多个bvid直接传入命令行, 逗号分隔](#1-多个bvid直接传入命令行-逗号分隔)
   - [2. 传入一个包含bvid列表的文件, 回车换行](#2-传入一个包含bvid列表的文件-回车换行)
 - [爬取用户投稿视频](#爬取用户投稿视频)
+- [根据SQL下载视频](#根据sql下载视频)
 - [列出内置的爬虫](#列出内置的爬虫)
 - [运行内置爬虫](#运行内置爬虫)
 - [Configuration](#configuration)
@@ -34,12 +35,12 @@
 
 `python -m spiders_for_all bilibili --help`
 
-`python -m spiders_for_all bilibili download-video --help`
+`python -m spiders_for_all bilibili download-by-id --help`
 
 # 通过bvid下载视频
 
 ```sh
-python -m spiders_for_all bilibili download-video -b BV1BK411L7DJ -s /tmp/bilibili_download_video
+python -m spiders_for_all bilibili download-by-id -b BV1BK411L7DJ -s /tmp/bilibili_download_video
 ```
 
 # 批量下载视频
@@ -49,16 +50,16 @@ python -m spiders_for_all bilibili download-video -b BV1BK411L7DJ -s /tmp/bilibi
 ## 1. 多个bvid直接传入命令行, 逗号分隔
 
 ```sh
-python -m spiders_for_all bilibili download-videos -b BV1BK411L7DJ,BV1ph4y1g75E -s /tmp/bilibili_download_videos
+python -m spiders_for_all bilibili download-by-ids -b BV1BK411L7DJ,BV1ph4y1g75E -s /tmp/bilibili_download_videos
 ```
 
 ## 2. 传入一个包含bvid列表的文件, 回车换行
 
 ```sh
-python -m spiders_for_all bilibili download-videos -b bvid_list.txt -s /tmp/bilibili_download_videos
+python -m spiders_for_all bilibili download-by-ids -b bvid_list.txt -s /tmp/bilibili_download_videos
 ```
 
-详细参数可以通过`python -m spiders_for_all bilibili download-videos --help`查看
+详细参数可以通过`python -m spiders_for_all bilibili download-by-ids --help`查看
 
 # 爬取用户投稿视频
 
@@ -71,6 +72,18 @@ python -m spiders_for_all bilibili download-by-author -m 483879799 -s /tmp/bilib
 - `-m`: 用户的mid
 - `-s`: 保存目录
 - `-t`: 爬取的数目, 不指定将爬取全部投稿视频
+
+>*注意*:
+> 该命令仅会保存并下载本次爬取的视频, 爬取的视频信息(title, bvid等)会保存到本地数据库`.db/bilibili.db`的`t_bilibili_author_video`表中, 这也就意味着如果你使用该命令分别爬取了不同的用户投稿视频, 本地数据库将存储全部这些数据。如果你需要一次性下载多个用户的投稿视频, 可以通过`download-by-sql`这个命令来指定你要下载哪些视频, 详见[根据SQL下载视频](#根据sql下载视频), 同时`run-spider author`也提供了对应的途径, 详见[运行示例](../../../example/bilibili/example_run_spider.sh)中最后关于`author`的部份
+
+
+# 根据SQL下载视频
+
+**正常情况下本地的数据库文件位于`./.db/bilibili.db`**
+
+```sh
+python -m spiders_for_all bilibili download-by-sql "select bvid from t_bilibili_author_video limit 5" -s /tmp/bilibili_download_by_sql
+```
 
 # 列出内置的爬虫
 
