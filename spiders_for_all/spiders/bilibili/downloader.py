@@ -213,16 +213,16 @@ class BilibiliDownloader(base_downloader.BaseDownloader):
     def add_audio_download_task(self):
         audio = self.play_info.dash.audio[0]
         client = self.get_download_client()
-        self.download_tasks.append(
-            base_downloader.DownloadTask(
-                base_media.Mp3(
-                    complete_url=audio.base_url,
-                ),
-                self.temp_dir / f"audio-{audio.audio_id}.mp4",
-                logger=logger,
-                client=client,
-            )
+        task = base_downloader.DownloadTask(
+            base_media.Mp3(
+                complete_url=audio.base_url,
+            ),
+            self.temp_dir / f"audio-{audio.audio_id}.mp4",
+            logger=logger,
+            client=client,
         )
+        self.download_tasks.append(task)
+        self.temp_audio_file = task.output_file
 
     def prepare_tasks(self):
         self.tasks.append(
