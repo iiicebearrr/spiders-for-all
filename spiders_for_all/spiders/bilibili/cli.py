@@ -264,6 +264,7 @@ def download_by_author(
     max_workers: int = 4,
     total: int | None = None,
 ):
+    """Download videos by author id"""
     author_spider = spiders.AuthorSpider(
         mid=mid, sess_data=sess_data, total=total, record=True
     )
@@ -299,6 +300,7 @@ def download_by_author(
 def download_by_sql(
     sql: str, save_dir: Path, sess_data: str | None = None, max_workers: int = 4
 ):
+    """Download videos by sql"""
     with db.Session() as s:
         rows = s.execute(sa.text(sql))
         bvid_list: list[str] = list(

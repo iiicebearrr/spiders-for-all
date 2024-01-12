@@ -130,6 +130,7 @@ def download_notes(note_ids: str | Path, save_dir: Path, max_workers: int = 4):
 @click.option("--save-dir", "-s", type=Path, required=True)
 @click.option("--max-workers", "-w", type=int, default=4)
 def download_by_sql(sql: str, save_dir: Path, max_workers: int):
+    """Download notes by sql."""
     with xhs.db.Session() as s:
         stmt = sa.text(sql)
         rows = s.execute(stmt)
