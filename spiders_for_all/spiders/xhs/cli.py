@@ -25,7 +25,7 @@ def list_spiders():
         print(f"  - {spider}")
 
 
-@cli.command("spider-author")
+@cli.command("download-by-author")
 @click.argument("uid")
 @click.option(
     "--on-init",
@@ -56,69 +56,44 @@ def list_spiders():
     "Default: 2",
 )
 @click.option(
-    "--download-only",
-    "-d",
-    is_flag=True,
-    help="Only download the notes data depending on the local database, without running the spider again",
-)
-@click.option(
     "--save-dir",
     "-s",
     help="If set `--save-dir`, will download all the notes data to the directory when the spider finished",
     type=Path,
-    required=False,
+    required=True,
 )
-@click.option(
-    "--where",
-    "-w",
-    type=str,
-    help="Where conditions to specify the note_id to download. "
-    'For example: "author_id=1234567890"',
-)
-def author_spider(
+def download_by_author(
     uid: str,
     on_init: str,
     on_save: str,
-    download_only: bool,
     save_dir: Path | None = None,
-    where: str | None = None,
 ):
-    """Crawl author's notes, and download them if specified."""
-    if not download_only:
-        spider = xhs.spiders.XhsAuthorSpider(
-            uid=uid,
-            db_action_on_init=DbActionOnInit(int(on_init)),
-            db_action_on_save=DbActionOnSave(int(on_save)),
-        )
-        spider.run()
+    """Crawl author's notes, and download them."""
+    spider = xhs.spiders.XhsAuthorSpider(
+        uid=uid,
+        db_action_on_init=DbActionOnInit(int(on_init)),
+        db_action_on_save=DbActionOnSave(int(on_save)),
+        record=True,
+    )
+    spider.run()
 
-    if download_only and not save_dir:
-        print("You must specify `-s` or `--save-dir`")
+    note_ids = spider.record_note_id_list
+
+    if not note_ids:
+        print(
+            "No notes found to be downloaded, may be you should run the spider first or check the `--where` option?"
+        )
         exit(1)
 
-    if save_dir:
-        with xhs.db.Session() as s:
-            note_ids_query = sa.select(xhs.schema.XhsAuthorNotes.note_id)
-            if where:
-                note_ids_query = note_ids_query.where(sa.text(where))
-            note_ids = [row.note_id for row in s.execute(note_ids_query)]
+    downloader = xhs.downloader.XhsNoteBatchDownloader(
+        note_ids=note_ids,
+        save_dir=save_dir,  # type: ignore
+    )
 
-        if not note_ids:
-            print(
-                "No notes found to be downloaded, may be you should run the spider first or check the `--where` option?"
-            )
-            print(f"SQL: {note_ids_query}")
-            exit(1)
-
-        downloader = xhs.downloader.XhsNoteBatchDownloader(
-            note_ids=note_ids,
-            save_dir=save_dir,  # type: ignore
-        )
-
-        downloader.download()
+    downloader.download()
 
 
-@cli.command("download")
+@cli.command("download-by-id")
 @click.option(
     "--note-ids",
     "-i",
@@ -126,7 +101,8 @@ def author_spider(
     help="A string of comma separated note ids, or a file path.",
 )
 @click.option("--save-dir", "-s", type=Path, required=True)
-def download_notes(note_ids: str | Path, save_dir: Path):
+@click.option("--max-workers", "-w", type=int, default=4)
+def download_notes(note_ids: str | Path, save_dir: Path, max_workers: int = 4):
     """Download notes by note ids.
 
     For example:
@@ -143,7 +119,29 @@ def download_notes(note_ids: str | Path, save_dir: Path):
         ...
     """
     downloader = xhs.downloader.XhsNoteBatchDownloader(
-        note_ids=note_ids, save_dir=save_dir
+        note_ids=note_ids, save_dir=save_dir, max_workers=max_workers
+    )
+
+    downloader.download()
+
+
+@cli.command("download-by-sql")
+@click.argument("sql")
+@click.option("--save-dir", "-s", type=Path, required=True)
+@click.option("--max-workers", "-w", type=int, default=4)
+def download_by_sql(sql: str, save_dir: Path, max_workers: int):
+    with xhs.db.Session() as s:
+        stmt = sa.text(sql)
+        rows = s.execute(stmt)
+        note_ids: list[str] = [getattr(row, "note_id", None) for row in rows]  # type: ignore
+
+        if not note_ids:
+            print("[bold yellow]No notes found to be downloaded...")
+            print(f"Statement: {sql}")
+            return
+
+    downloader = xhs.downloader.XhsNoteBatchDownloader(
+        note_ids=note_ids, save_dir=save_dir, max_workers=max_workers
     )
 
     downloader.download()

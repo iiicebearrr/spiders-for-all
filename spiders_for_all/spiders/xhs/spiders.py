@@ -2,6 +2,7 @@ import json
 import time
 import typing as t
 from itertools import chain
+from typing import Iterable
 
 import requests
 
@@ -35,10 +36,14 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
     item_model = models.XhsUserPostedNote
     db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
 
-    def __init__(self, uid: str, **kwargs: t.Unpack[SpiderKwargs]):
+    def __init__(
+        self, uid: str, record: bool = False, **kwargs: t.Unpack[SpiderKwargs]
+    ):
         super().__init__(**kwargs)
         self.uid = uid
         self.api = self.__class__.api.format(uid=uid)
+        self.record = record
+        self.record_note_id_list = []
 
         self.client.headers.update(
             {**settings.XHS_HEADERS, "x-t": str(int(time.time() * 1000))}
@@ -168,3 +173,11 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
         if isinstance(note_or_item, models.XhsAuthorPageNote):
             return note_or_item.note_item
         return note_or_item
+
+    def get_items(self) -> Iterable[models.XhsUserPostedNote]:
+        ret: Iterable[models.XhsUserPostedNote] = super().get_items()  # type: ignore
+        if not self.record:
+            return ret
+        for item in ret:
+            yield item
+            self.record_note_id_list.append(item.note_id)
