@@ -8,6 +8,7 @@
   - [1. 多个note\_id直接传入命令行, 逗号分隔](#1-多个note_id直接传入命令行-逗号分隔)
   - [2. 传入一个包含note\_id列表的文件, 回车换行](#2-传入一个包含note_id列表的文件-回车换行)
 - [爬取用户投稿的笔记](#爬取用户投稿的笔记)
+- [根据SQL下载笔记](#根据sql下载笔记)
 - [Configuration](#configuration)
 
 # Features
@@ -31,12 +32,12 @@
 
 `python -m spiders_for_all xhs --help`
 
-`python -m spiders_for_all xhs download --help`
+`python -m spiders_for_all xhs download-by-id --help`
 
 # 通过note_id下载笔记内容
 
 ```sh
-python -m spiders_for_all xhs download -i 6577d19b000000003a00e0a8 -s /tmp/xhs_download
+python -m spiders_for_all xhs download-by-id -i 6577d19b000000003a00e0a8 -s /tmp/xhs_download
 ```
 
 # 批量下载笔记
@@ -46,25 +47,25 @@ python -m spiders_for_all xhs download -i 6577d19b000000003a00e0a8 -s /tmp/xhs_d
 ## 1. 多个note_id直接传入命令行, 逗号分隔
 
 ```sh
-python -m spiders_for_all xhs download -i 6577d19b000000003a00e0a8,65964537000000001101c0ce -s /tmp/xhs_download
+python -m spiders_for_all xhs download-by-id -i 6577d19b000000003a00e0a8,65964537000000001101c0ce -s /tmp/xhs_download
 ```
 
 ## 2. 传入一个包含note_id列表的文件, 回车换行
 
 ```sh
-python -m spiders_for_all xhs download -i note_id_list.txt -s /tmp/xhs_download
+python -m spiders_for_all xhs download-by-id -i note_id_list.txt -s /tmp/xhs_download
 ```
 
 
 # 爬取用户投稿的笔记
 
 ```sh
-python -m spiders_for_all xhs spider-author 5d9756b20000000001005857 \
-    -s /tmp/xhs_spider_author \
-    -w "author_id='5d9756b20000000001005857'"
+python -m spiders_for_all xhs download-by-author 5d9756b20000000001005857 \
+    -s /tmp/xhs_spider_author 
 ```
 
-*需要注意的是`spider-author`是通用命令, 本地数据库会保存多个作者的笔记数据, 如果你想通过这个命令下载某作者笔记, 请按照示例添加`-w`参数来过滤作者笔记，否则会下载本地数据库存储的所有笔记数据*
+>*注意*:
+> 该命令仅会保存并下载本次爬取的笔记, 爬取的笔记信息(title, note_id等)会保存到本地数据库`.db/xhs.db`的`t_xhs_author_notes`表中, 这也就意味着如果你使用该命令分别爬取了不同的用户投稿笔记, 本地数据库将存储全部这些数据。如果你需要一次性下载多个用户的投稿笔记, 可以通过`download-by-sql`这个命令来指定你要下载哪些笔记[根据SQL下载笔记](#根据sql下载笔记)。
 
 **NOTE: 目前该接口由于小红书的签名算法问题, 只能爬取到用户首页投稿数据, 如果有分页数据则无法爬取。当然如果你有现成的途径可以解决这个问题，也可以通过修改`spiders_for_all/spiders/xhs.py`内的`XhsAuthorSpider`来解决这个问题。`XhsAuthorSpider`已实现了分页逻辑, 只需要在以下部份添加你已实现的签名算法即可:**
 
@@ -113,6 +114,14 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
 
             ...
 
+```
+
+# 根据SQL下载笔记
+
+**本地数据库正常情况下位于`./.db/xhs.db`**
+
+```sh
+python -m spiders_for_all xhs download-by-sql "select note_id from t_xhs_author_notes limit 5" -s /tmp/xhs_download_by_sql
 ```
 
 
