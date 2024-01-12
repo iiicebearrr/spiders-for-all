@@ -402,6 +402,7 @@ class AuthorSpider(BaseBilibiliPageSpider):
         sess_data: str | None = None,
         page_size: int = 30,
         page_number: int = 1,
+        record: bool = False,
     ):
         super().__init__(
             total=total,
@@ -409,6 +410,12 @@ class AuthorSpider(BaseBilibiliPageSpider):
             start_page_number=page_number,
             sleep_before_next_request=(5, 11),
         )
+
+        self.record = record
+
+        # Record all the bvid when crawling, for later use
+        self.bvid_list_record = []
+
         self.client.headers.update(
             {
                 "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -512,11 +519,13 @@ class AuthorSpider(BaseBilibiliPageSpider):
 
     def get_items_from_response(
         self,
-        # TODO: fix mypy error
         response: models.AuthorVideoResponse,  # type: ignore
     ) -> typing.Iterable[models.AuthorVideoItem]:
         response.raise_for_status()
-        return response.data.list_data.items
+        ret = response.data.list_data.items
+        if self.record:
+            self.bvid_list_record.extend([item.bvid for item in ret])
+        return ret
 
     def get_wrid(self, params: str) -> str:
         md5 = hashlib.md5()
@@ -545,6 +554,15 @@ class AuthorSpider(BaseBilibiliPageSpider):
         return {
             "params": params,
         }
+
+    def get_record_bvid_list(self) -> list[str]:
+        if self.record:
+            return (
+                self.bvid_list_record
+                if self.total is None
+                else self.bvid_list_record[: self.total]
+            )
+        return []
 
 
 # TODO

@@ -6,14 +6,7 @@ from rich import print
 
 from spiders_for_all.conf import settings
 from spiders_for_all.core.spider import SPIDERS
-from spiders_for_all.spiders.bilibili import (
-    analysis,
-    const,
-    db,
-    downloader,
-    schema,
-    spiders,
-)
+from spiders_for_all.spiders.bilibili import analysis, const, db, downloader, spiders
 
 _ = spiders  # to call init_subclass
 
@@ -117,7 +110,7 @@ def data_analysis(name: str, top_n: int):
     analysis.Analysis(spider.database_model, top_n).show()  # type: ignore
 
 
-@cli.command()
+@cli.command("download-by-id")
 @click.option("--bvid", "-b", help="Bvid of the video", required=True, type=str)
 @click.option(
     "--save-dir", "-s", help="Save directory of the video", required=True, type=Path
@@ -194,7 +187,7 @@ def download_video(
     _downloader.download()
 
 
-@cli.command()
+@cli.command("download-by-ids")
 @click.option(
     "--bvids",
     "-b",
@@ -261,7 +254,7 @@ def download_videos(
 @click.option(
     "--total",
     "-t",
-    help="Total number of videos to download. If not set, will download all the videos.",
+    help="Total number of videos to fetch. If not set, will fetch all the videos of this user.",
     type=int,
 )
 def download_by_author(
@@ -271,17 +264,11 @@ def download_by_author(
     max_workers: int = 4,
     total: int | None = None,
 ):
-    author_spider = spiders.AuthorSpider(mid=mid, sess_data=sess_data, total=total)
+    author_spider = spiders.AuthorSpider(
+        mid=mid, sess_data=sess_data, total=total, record=True
+    )
     author_spider.run()
-    with db.Session() as s:
-        bvids = [
-            row.bvid
-            for row in s.execute(
-                sa.select(schema.BilibiliAuthorVideo.bvid).where(
-                    schema.BilibiliAuthorVideo.mid == mid
-                )
-            )
-        ]
+    bvids = author_spider.get_record_bvid_list()
 
     if not bvids:
         print(f"[bold yellow]No videos found for author {mid}...")
@@ -293,6 +280,44 @@ def download_by_author(
 
     multiple_downloader = downloader.BilibiliBatchDownloader(
         bvid_list=bvids, save_dir=save_dir, sess_data=sess_data, max_workers=max_workers
+    )
+
+    multiple_downloader.download()
+
+
+@cli.command("download-by-sql")
+@click.argument("sql")
+@click.option(
+    "--save-dir",
+    "-s",
+    help="Path to save the downloaded videos",
+    type=Path,
+    required=True,
+)
+@click.option("--sess-data", "-ss", help="`SESSDATA`", required=False)
+@click.option("--max-workers", "-w", help="max workers", type=int, default=4)
+def download_by_sql(
+    sql: str, save_dir: Path, sess_data: str | None = None, max_workers: int = 4
+):
+    with db.Session() as s:
+        rows = s.execute(sa.text(sql))
+        bvid_list: list[str] = list(
+            filter(
+                lambda bvid: bvid is not None,
+                [getattr(row, "bvid", None) for row in rows],
+            )
+        )  # type: ignore
+
+        if not bvid_list:
+            print("[bold yellow]No videos found to be downloaded...")
+            print(f"Statement: {sql}")
+            return
+
+    multiple_downloader = downloader.BilibiliBatchDownloader(
+        bvid_list=bvid_list,
+        save_dir=save_dir,
+        sess_data=sess_data,
+        max_workers=max_workers,
     )
 
     multiple_downloader.download()
