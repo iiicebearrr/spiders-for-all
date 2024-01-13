@@ -2,8 +2,8 @@
 # 目录
 
 - [目录](#目录)
-- [Features](#features)
-- [前言](#前言)
+- [功能](#功能)
+- [快速开始](#快速开始)
 - [通过bvid下载视频](#通过bvid下载视频)
 - [批量下载视频](#批量下载视频)
   - [1. 多个bvid直接传入命令行, 逗号分隔](#1-多个bvid直接传入命令行-逗号分隔)
@@ -12,16 +12,23 @@
 - [根据SQL下载视频](#根据sql下载视频)
 - [列出内置的爬虫](#列出内置的爬虫)
 - [运行内置爬虫](#运行内置爬虫)
-- [Configuration](#configuration)
+- [配置](#配置)
+- [自定义headers和cookies](#自定义headers和cookies)
+  - [1. 初始化时设置你自己的headers和cookies](#1-初始化时设置你自己的headers和cookies)
+  - [2. 在`BaseSpider`爬虫内部设置你自己的headers和cookies](#2-在basespider爬虫内部设置你自己的headers和cookies)
+  - [3. 在任何进行网络请求的地方设置你自己的headers和cookies](#3-在任何进行网络请求的地方设置你自己的headers和cookies)
 
-# Features
+> NOTE:\
+> 该仓库的所有模拟请求均未携带`cookie`信息, 都是通过模拟请求头以及请求参数来进行爬取，因此可能会遇到更频繁的风控策略(即-352错误), 不使用`cookie`的主要原因是因为这种方式可能会提高账户被限制的风险, 但是如果你需要指定对应的`cookie`来爬取, 该仓库仍然提供了可拓展的接口进行实现, 详见[自定义headers和cookies](#自定义headers和cookies)
+
+# 功能
 
 - [x] 根据bvid下载视频
 - [x] 批量下载视频
 - [x] 爬取用户投稿视频(可全部爬取)
 - [x] 内置部份分栏爬虫
 
-# 前言
+# 快速开始
 
 命令行使用时, 基本的使用格式为:
 
@@ -114,7 +121,7 @@ python -m spiders_for_all bilibili run-spider popular -p total 10 -s /tmp
 
 **完整示例见** [所有内置爬虫用法示例](../../../example/bilibili/example_run_spider.sh)
 
-# Configuration
+# 配置
 
 你可以通过在当前目录创建`.env`来控制爬虫的一些行为, 针对`bilibili`目前可用的配置为:
 
@@ -136,3 +143,53 @@ python -m spiders_for_all bilibili run-spider popular -p total 10 -s /tmp
 |REQUEST_RETRY_STEP|int|请求失败后重试间隔递增步长, 单位: 秒, 设置0将以固定的REQUEST_RETRY_INTERVAL进行重试|10|REQUEST_RETRY_STEP=5|
 |HTTP_PROXIES|json|代理配置, 格式为json, 详细配置见[requests文档](https://docs.python-requests.org/en/latest/user/advanced/#proxies)|None|HTTP_PROXIES={"http":"http://your_proxy.com"}|
 
+# 自定义headers和cookies
+
+*默认情况下, 所有通过`HttpClient.request`进行的网络请求, 会自动携带`user-agent`, 并且每次请求时都会自动刷新, 该参数由`fake-useragent`库生成的随机ua*
+
+## 1. 初始化时设置你自己的headers和cookies
+
+**初始化设置的headers和cookies会在整个爬虫运行期间保持不变**
+
+```python
+from spiders_for_all.core.spider import BaseSpider
+
+class YourSpider(BaseSpider):
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.client.headers.update({"your_header_name":"your_header_value"})
+    self.client.cookies.update({"your_cookie_name":"your_cookie_value"})
+```
+
+## 2. 在`BaseSpider`爬虫内部设置你自己的headers和cookies
+
+**通过重写`self.request_items()`来实现:**
+
+```python
+from spiders_for_all.core.spider import BaseSpider
+
+class YourSpider(BaseSpider):
+
+  def request_items(self, method: str, url: str, **kwargs):
+
+    # kwargs的参数会原封不动的传递给requests.request, 你也可以通过直接修改kwargs["headers"]和kwargs["cookies"]来实现
+
+    self.client.headers.update({"your_header_name":"your_header_value"})
+    self.client.cookies.update({"your_cookie_name":"your_cookie_value"})
+    return super().request_items(method, url, **kwargs)
+```
+
+## 3. 在任何进行网络请求的地方设置你自己的headers和cookies
+
+*针对已有的爬虫类进行改动, 需要自行翻阅并修改源码来实现*
+
+```python
+from spiders_for_all.core.client import HttpClient
+client = HttpClient()
+for _ in range(10):
+  client.headers.update({"your_header_name":"your_header_value"})
+  client.cookies.update({"your_cookie_name":"your_cookie_value"})
+  client.request(...)
+
+```

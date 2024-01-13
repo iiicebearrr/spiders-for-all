@@ -14,7 +14,7 @@ from sqlalchemy import orm
 from sqlalchemy.dialects import sqlite
 
 from spiders_for_all.conf import settings
-from spiders_for_all.core.client import HttpClient
+from spiders_for_all.core.client import HttpClient, RequestKwargs
 from spiders_for_all.core.response import Response
 from spiders_for_all.database.session import SessionManager
 from spiders_for_all.utils.decorator import retry
@@ -159,6 +159,9 @@ class BaseSpider(LoggerMixin):
     ) -> t.Iterable[BaseModel]:
         raise NotImplementedError()
 
+    def request_items(self, method: str, url: str, **kwargs: t.Unpack[RequestKwargs]):
+        return self.client.request(method, url, **kwargs)
+
     def _get_items(self) -> t.Iterable[BaseModel]:
         # Note: get_items_from_response and validate_response should be retried either if failed
         @retry(
@@ -175,7 +178,7 @@ class BaseSpider(LoggerMixin):
         def wrapper():
             return self.get_items_from_response(
                 self.validate_response(
-                    self.client.request("GET", self.api, **self.get_request_args())
+                    self.request_items("GET", self.api, **self.get_request_args())
                 )
             )
 
