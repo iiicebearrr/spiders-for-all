@@ -7,6 +7,7 @@ from functools import cached_property
 from pathlib import Path
 from traceback import format_exc
 
+import requests
 from rich import progress as p
 from rich.console import Console
 
@@ -14,7 +15,7 @@ from spiders_for_all import const
 from spiders_for_all.conf import settings
 from spiders_for_all.core import media as base_media
 from spiders_for_all.core.client import HttpClient
-from spiders_for_all.core.exception import MaxRetryExceedError
+from spiders_for_all.core.exception import MaxRetryExceedError, ReWriteRequiredError
 from spiders_for_all.utils import helper
 from spiders_for_all.utils.logger import LoggerMixin
 from spiders_for_all.utils.logger import default_logger as logger
@@ -207,10 +208,16 @@ class DownloadTask(BaseTask, LoggerMixin):
                     self.debug(
                         f"Max retry exceed for url: {url}, try next url if exists."
                     )
+                except requests.exceptions.RequestException as e:
+                    # The `iter_content` may encounter some error like `Connection Broken`, etc.
+                    # TODO: It's better to retry the task or retry the whole downloader
+                    raise ReWriteRequiredError(
+                        f"HTTP error occurred, rewrite the whole file with. detail: {e.args}",
+                    )
             if not ok:
                 raise ValueError("All urls failed.")
 
-    def start(self) -> t.Generator[Size | bytes, None, None]:
+    def write(self) -> t.Generator[Size | bytes, None, None]:
         with open(self.output_file, "wb") as f:
             generator = self.request()
             total_size = next(generator)
@@ -218,6 +225,15 @@ class DownloadTask(BaseTask, LoggerMixin):
             for chunk in generator:
                 f.write(chunk)  # type: ignore
                 yield chunk
+
+    def start(self) -> t.Generator[Size | bytes, None, None]:
+        try:
+            yield from self.write()
+        except ReWriteRequiredError:
+            # Create a new session to retry the task
+            # FIXME: This will cause the progress of the progress bar to be wrong
+            self.client = self.client.new()
+            yield from self.write()
 
         self._finished = True
 
