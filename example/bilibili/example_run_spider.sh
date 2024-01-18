@@ -54,4 +54,4 @@ ${BASE} bilibili run-spider author -p mid 31283043 -w "mid=31283043 limit 3" -s 
 
 # example 4: crawl all videos of some author
 # NOTE: This may take a very long time due to the risk control strategy of bilibili api
-${BASE} bilibili run-spider author -p mid 40966108
+# ${BASE} bilibili run-spider author -p mid 40966108
