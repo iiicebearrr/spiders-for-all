@@ -123,7 +123,13 @@ class HttpClient(logger.LoggerMixin):
         )
 
     def request(
-        self, method: str, url: str, **kwargs: t.Unpack[RequestKwargs]
+        self,
+        method: str,
+        url: str,
+        max_retries: int = settings.REQUEST_MAX_RETRIES,
+        retry_interval: int = settings.REQUEST_RETRY_INTERVAL,
+        retry_step: int = settings.REQUEST_RETRY_STEP,
+        **kwargs: t.Unpack[RequestKwargs],
     ) -> requests.Response:
         # TODO: Add hooks to check response with code 200
 
@@ -135,13 +141,9 @@ class HttpClient(logger.LoggerMixin):
         headers_merged = False
 
         @decorator.retry(
-            max_retries=self.retry_settings.get(
-                "max_retries", settings.REQUEST_MAX_RETRIES
-            ),
-            interval=self.retry_settings.get(
-                "retry_interval", settings.REQUEST_RETRY_INTERVAL
-            ),
-            step=self.retry_settings.get("retry_step", settings.REQUEST_RETRY_STEP),
+            max_retries=self.retry_settings.get("max_retries", max_retries),
+            interval=self.retry_settings.get("retry_interval", retry_interval),
+            step=self.retry_settings.get("retry_step", retry_step),
             logger=self.logger,
         )
         def _request():

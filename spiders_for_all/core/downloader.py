@@ -14,7 +14,9 @@ from spiders_for_all import const
 from spiders_for_all.conf import settings
 from spiders_for_all.core import media as base_media
 from spiders_for_all.core.client import HttpClient
+from spiders_for_all.core.exception import MaxRetryExceedError
 from spiders_for_all.utils import helper
+from spiders_for_all.utils.logger import LoggerMixin
 from spiders_for_all.utils.logger import default_logger as logger
 
 Size = t.NewType("Size", int)
@@ -149,7 +151,7 @@ class LinerTask(BaseTask):
         return ret
 
 
-class DownloadTask(BaseTask):
+class DownloadTask(BaseTask, LoggerMixin):
     def __init__(
         self,
         media: base_media.Media,
@@ -161,7 +163,7 @@ class DownloadTask(BaseTask):
         client: HttpClient | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, logger=logger, **kwargs)
         self.media = media
         self.output_file = (
             Path(output_file) if isinstance(output_file, str) else output_file
@@ -179,15 +181,34 @@ class DownloadTask(BaseTask):
         return f"<Type: {self.media.media_type._name_}> {self.media.name or self.media.url}"
 
     def request(self) -> t.Generator[Size | bytes, None, None]:
+        ok = False
         with self.client:
-            with self.client.request(
-                self.request_method, self.media.url, stream=True
-            ) as r:
-                if self._total_size is None:
-                    self._total_size = int(r.headers.get("Content-Length", 0))
-                    yield self._total_size  # type: ignore
-                for chunk in r.iter_content(chunk_size=self.chunk_size):
-                    yield chunk
+            for url in self.media.urls:
+                try:
+                    # Sometimes the url is not available, so we try to use backup url
+                    with self.client.request(
+                        self.request_method,
+                        url,
+                        stream=True,
+                        timeout=settings.REQUEST_TIMEOUT,
+                        max_retries=3,
+                        retry_interval=5,
+                        retry_step=0,
+                    ) as r:
+                        if self._total_size is None:
+                            self._total_size = int(r.headers.get("Content-Length", 0))
+                            yield self._total_size  # type: ignore
+                        for chunk in r.iter_content(chunk_size=self.chunk_size):
+                            yield chunk
+
+                        ok = True
+                        break
+                except MaxRetryExceedError:
+                    self.debug(
+                        f"Max retry exceed for url: {url}, try next url if exists."
+                    )
+            if not ok:
+                raise ValueError("All urls failed.")
 
     def start(self) -> t.Generator[Size | bytes, None, None]:
         with open(self.output_file, "wb") as f:

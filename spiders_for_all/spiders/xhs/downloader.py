@@ -35,7 +35,7 @@ class XhsNoteDownloader(BaseDownloader):
         self.note_id = note_id
         super().__init__(
             save_dir,
-            media=Note(complete_url=self.api.format(note_id=note_id)),
+            media=Note(base_url=self.api.format(note_id=note_id)),
             **kwargs,
         )
         self.images: list[WEBP] = []
@@ -59,13 +59,13 @@ class XhsNoteDownloader(BaseDownloader):
             for note_detail in note_detail_maps:
                 note = models.XhsNote(**note_detail["note"])
                 for image in note.image_list:
-                    self.images.append(WEBP(complete_url=image.url_default))
+                    self.images.append(WEBP(base_url=image.url_default))
 
                 if note.video:
                     for v in note.video.media.iter_video_item():
                         self.videos.append(
                             Mp4(
-                                complete_url=v.master_url,
+                                base_url=v.master_url,
                                 name=f"{v.quality_type}-{v.video_codec}",
                             )
                         )

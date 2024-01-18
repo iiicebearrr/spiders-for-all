@@ -19,28 +19,30 @@ class Media:
     def __init__(
         self,
         *args,
-        complete_url: str | None = None,
-        base_url: str | None = None,
-        url_id: str | None = None,
+        base_url: str,
+        backup_url: list[str] | None = None,
         name: str | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.complete_url = complete_url
         self.base_url = base_url
-        self.url_id = url_id
+        self.backup_url = backup_url or []
         self.name = name or "NAME NOT SET"
 
     @cached_property
     def url(self) -> str:
-        return str(self.get_url())
+        return str(self.get_url(self.base_url))
 
-    def get_url(self) -> HttpUrl:
-        if self.complete_url:
-            return HttpUrl(self.complete_url)
-        if self.base_url and self.url_id:
-            return HttpUrl(self.base_url.rstrip("/") + "/" + self.url_id.lstrip("/"))
-        raise ValueError("Media url is not set correctly.")
+    @cached_property
+    def urls(self) -> list[str]:
+        if not self.backup_url:
+            return [self.url]
+        _urls = [self.base_url]
+        _urls.extend(self.backup_url)
+        return [str(self.get_url(url)) for url in _urls]
+
+    def get_url(self, url: str) -> HttpUrl:
+        return HttpUrl(url)
 
     def __str__(self) -> str:
         if not self.description:

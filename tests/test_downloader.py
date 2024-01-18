@@ -53,7 +53,7 @@ class TestLinerTask(TestCase):
 class TestDownloadTask(TestCase):
     def setUp(self):
         self.media = base_media.Image(
-            complete_url="http://test.com",
+            base_url="http://test.com",
             name="test",
         )
         self.output_file = "test"
@@ -103,6 +103,10 @@ class TestDownloadTask(TestCase):
             self.download_task.request_method,
             self.media.url,
             stream=True,
+            timeout=30,
+            max_retries=3,
+            retry_interval=5,
+            retry_step=0,
         )
 
         next(r)
