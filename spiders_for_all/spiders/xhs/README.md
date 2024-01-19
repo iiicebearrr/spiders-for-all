@@ -15,7 +15,7 @@
 
 - [x] 根据note_id下载笔记内容以及笔记内的图片、视频数据
 - [x] 批量下载笔记
-- [x] 爬取用户投稿的笔记(**目前由于小红书签名算法的问题, 只能爬取用户投稿的首页数据, 需要下拉加载的数据暂时无法爬取**)
+- [x] 爬取用户投稿的笔记
 
 
 # 前言
@@ -59,6 +59,7 @@ python -m spiders_for_all xhs download-by-id -i note_id_list.txt -s /tmp/xhs_dow
 
 # 爬取用户投稿的笔记
 
+
 ```sh
 python -m spiders_for_all xhs download-by-author 5d9756b20000000001005857 \
     -s /tmp/xhs_spider_author 
@@ -67,54 +68,8 @@ python -m spiders_for_all xhs download-by-author 5d9756b20000000001005857 \
 >*注意*:
 > 该命令仅会保存并下载本次爬取的笔记, 爬取的笔记信息(title, note_id等)会保存到本地数据库`.db/xhs.db`的`t_xhs_author_notes`表中, 这也就意味着如果你使用该命令分别爬取了不同的用户投稿笔记, 本地数据库将存储全部这些数据。如果你需要一次性下载多个用户的投稿笔记, 可以通过`download-by-sql`这个命令来指定你要下载哪些笔记[根据SQL下载笔记](#根据sql下载笔记)。
 
-**NOTE: 目前该接口由于小红书的签名算法问题, 只能爬取到用户首页投稿数据, 如果有分页数据则无法爬取。当然如果你有现成的途径可以解决这个问题，也可以通过修改`spiders_for_all/spiders/xhs.py`内的`XhsAuthorSpider`来解决这个问题。`XhsAuthorSpider`已实现了分页逻辑, 只需要在以下部份添加你已实现的签名算法即可:**
+**NOTE: 该接口需要提前在本地配置好`nodejs`环境, 同时安装依赖包: `npm install`**
 
-`spiders_for_all/spiders/xhs.py`:
-
-```python
-class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
-    ...
-
-    def get_items_from_response(
-        self,
-        response: requests.Response,  # type: ignore
-    ) -> t.Iterable[models.XhsUserPostedNote]:
-        ...
-        if next_query is None:
-            ...
-        else:
-            
-            # 注释掉这里return的代码
-            # self.warning(
-            #     "For now, we can only get the first page of notes due to the lack of x-s algorithm."
-            # )
-
-            # return (
-            #     models.XhsAuthorPageNote(**note).note_item
-            #     for note in chain.from_iterable(notes)
-            # )
-
-            ...
-    
-    
-    def iter_notes_by_cursor(
-        self, query: models.XhsNoteQuery, formats: str | None = None
-    ) -> t.Generator[models.XhsUserPostedNote, None, None]:
-
-        ...
-
-        while query.cursor:
-            
-            # 你已实现的签名算法
-            headers = your_headers_implementation()
-            cookies = your_cookies_implementation()
-
-            self.client.headers.update(headers)
-            self.client.cookies.update(cookies)
-
-            ...
-
-```
 
 # 根据SQL下载笔记
 
@@ -133,7 +88,8 @@ python -m spiders_for_all xhs download-by-sql "select note_id from t_xhs_author_
 |配置名称|类型|描述|默认值|示例|
 |---|---|---|---|---|
 |XHS_HEADERS|json|全局请求头, 每次调用都会携带, 可以通过`self.client.headers.update`覆盖|None|XHS_HEADERS={"Referer":"referer"}|
-|XHS_COOKIES|json|全局cookie, 每次调用都会携带, 可以通过`self.client.cookies.update`覆盖|None|XHS_COOKIES={"cookie_name":"cookie_value"}|
+|XHS_COOKIES|str|全局cookie, 每次调用都会携带, 可以通过`self.client.cookies.update`覆盖|None|XHS_COOKIES="key=value;key2=value2"|
+|XHS_SIGN_JS_FILE|str|用来签名的js文件,默认使用仓库中的js文件`spiders_for_all/static/xhs.js`, 需要自行实现一个`get_xs`方法|XHS_SIGN_JS_FILE=/path/to/your/js|
 
 
 同时, 还有一些配置为全局配置:

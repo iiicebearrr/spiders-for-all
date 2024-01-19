@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spiders-for-all"
-version = "0.2.9"
+version = "0.3.0"
 description = ""
 authors = ["icebear <iiiicebeaaaar@gmail.com>"]
 readme = "README.md"
@@ -17,6 +17,7 @@ requests = "^2.31.0"
 sqlalchemy = "^2.0.23"
 beautifulsoup4 = "^4.12.2"
 types-beautifulsoup4 = "^4.12.0.7"
+pyexecjs = "^1.5.1"
 
 
 [tool.poetry.group.dev.dependencies]
