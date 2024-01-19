@@ -68,7 +68,7 @@ python -m spiders_for_all xhs download-by-author 5d9756b20000000001005857 \
 >*注意*:
 > 该命令仅会保存并下载本次爬取的笔记, 爬取的笔记信息(title, note_id等)会保存到本地数据库`.db/xhs.db`的`t_xhs_author_notes`表中, 这也就意味着如果你使用该命令分别爬取了不同的用户投稿笔记, 本地数据库将存储全部这些数据。如果你需要一次性下载多个用户的投稿笔记, 可以通过`download-by-sql`这个命令来指定你要下载哪些笔记[根据SQL下载笔记](#根据sql下载笔记)。
 
-**NOTE: 该接口需要提前在本地配置好`nodejs`环境, 同时安装依赖包: `npm install`**
+**NOTE: 该接口需要提前在本地配置好`nodejs`环境, 同时安装依赖包: `npm install jsdom`**
 
 
 # 根据SQL下载笔记
