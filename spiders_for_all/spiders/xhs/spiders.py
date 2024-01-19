@@ -1,10 +1,11 @@
 import json
-import time
 import typing as t
 from itertools import chain
 from typing import Iterable
 
+import execjs
 import requests
+from pydantic import HttpUrl
 
 from spiders_for_all.conf import settings
 from spiders_for_all.core.spider import (
@@ -18,6 +19,19 @@ from spiders_for_all.utils import helper
 from spiders_for_all.utils.logger import get_logger
 
 logger = get_logger("xhs")
+
+JS = None
+
+
+def init_js():
+    global JS
+
+    if JS is None:
+        if not settings.XHS_SIGN_JS_FILE.exists():
+            raise ValueError(f"File not found: {settings.XHS_SIGN_JS_FILE}")
+        JS = execjs.compile(settings.XHS_SIGN_JS_FILE.read_text("utf-8"))
+
+    return JS
 
 
 class BaseXhsSpider(BaseSpider):
@@ -39,16 +53,33 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
     def __init__(
         self, uid: str, record: bool = False, **kwargs: t.Unpack[SpiderKwargs]
     ):
-        super().__init__(**kwargs)
         self.uid = uid
         self.api = self.__class__.api.format(uid=uid)
+
+        self.js = init_js()
+
+        super().__init__(**kwargs)
         self.record = record
         self.record_note_id_list = []
 
+        self.client.headers.update(settings.XHS_HEADERS)
         self.client.headers.update(
-            {**settings.XHS_HEADERS, "x-t": str(int(time.time() * 1000))}
+            {"origin": const.ORIGIN, "referer": const.ORIGIN + "/"}
         )
-        self.client.cookies.update(settings.XHS_COOKIES)
+        self.client.cookies = settings.XHS_COOKIES
+
+    def sign(self, api: str):
+        if "a1" not in self.client.cookies:
+            raise ValueError("You must set cookies value 'a1' for this spider")
+        try:
+            sign_data = self.js.call("get_xs", api, "", self.client.cookies["a1"])
+        except Exception:
+            raise ValueError(
+                f"Can not calculate sign, please check {settings.XHS_SIGN_JS_FILE}"
+            )
+
+        self.client.headers["x-s"] = sign_data["X-s"]
+        self.client.headers["x-t"] = str(sign_data["X-t"])
 
     def get_items_from_response(
         self,
@@ -86,17 +117,6 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
                 for note in chain.from_iterable(notes)
             )
         else:
-            # TODO: calculate x-s
-
-            self.warning(
-                "For now, we can only get the first page of notes due to the lack of x-s algorithm."
-            )
-
-            return (
-                models.XhsAuthorPageNote(**note).note_item
-                for note in chain.from_iterable(notes)
-            )
-
             self.sleep((3, 6))
 
             image_format_collect = json_data.get("imageFormatCollect")
@@ -116,7 +136,10 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
                 self.get_note_item(note_or_item)
                 for note_or_item in chain.from_iterable(
                     [
-                        chain.from_iterable(notes),
+                        [
+                            models.XhsAuthorPageNote(**note).note_item
+                            for note in chain.from_iterable(notes)
+                        ],
                         items_from_api,
                     ]
                 )
@@ -138,9 +161,7 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
 
         while query.cursor:
             self.debug(f"Fetching notes by cursor: {query.cursor}")
-            self.client.headers.update({"x-t": str(int(time.time() * 1000))})
-            # TODO: calculate x-s
-            api = (
+            url = HttpUrl(
                 const.API_AUTHOR_PAGINATION
                 + "?"
                 + "&".join(
@@ -155,7 +176,8 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
                     ]
                 )
             )
-            resp = self.client.get(api)
+            self.sign(f"{url.path}?{url.query}")
+            resp = self.client.get(str(url))
             resp = models.XhsUserPostedResponse(**resp.json())
             resp.raise_for_status()
             if resp.data.has_more:

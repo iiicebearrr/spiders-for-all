@@ -48,10 +48,12 @@ with env.prefixed("BILIBILI_"):
     )
     BILIBILI_COOKIE_SESS_DATA = env.str("SESS_DATA", None)
 
+XHS_SIGN_JS_FILE_DEFAULT = BASE_DIR / "spiders_for_all/static" / "xhs.js"
 
 with env.prefixed("XHS_"):
-    XHS_COOKIES = env.json("COOKIES", "{}", subcast_values=str)
+    XHS_COOKIES = env.str("COOKIES", None, subcast_values=str)
     XHS_HEADERS = env.json("HEADERS", "{}", subcast_values=str)
+    XHS_SIGN_JS_FILE = Path(env.str("SIGN_JS", str(XHS_SIGN_JS_FILE_DEFAULT)))
 
 REQUEST_MAX_RETRIES = env.int("REQUEST_MAX_RETRIES", 10)
 REQUEST_RETRY_INTERVAL = env.int("REQUEST_RETRY_INTERVAL", 30)

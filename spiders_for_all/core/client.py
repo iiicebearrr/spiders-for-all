@@ -16,7 +16,31 @@ Headers: t.TypeAlias = CaseInsensitiveDict
 
 
 def dict_to_headers(headers: dict[str, t.Any]) -> CaseInsensitiveDict:
-    return CaseInsensitiveDict(headers)
+    return CaseInsensitiveDict({k: str(v) for k, v in headers.items()})
+
+
+def cookiejar_from(cookies: str | RequestsCookieJar | dict | None) -> RequestsCookieJar:
+    match cookies:
+        case None:
+            return cookiejar_from_dict({})
+        case str():
+            try:
+                _cookies = SimpleCookie()
+                _cookies.load(cookies)
+                return cookiejar_from_dict({k: v.value for k, v in _cookies.items()})
+            except Exception:
+                raise ValueError(f"Invalid cookies: {cookies}")
+        case dict():
+            return cookiejar_from_dict(cookies)
+        case RequestsCookieJar():
+            return cookies
+        case _:
+            raise TypeError(
+                "Cookies must be a dict,  a string, "
+                f"or a RequestsCookieJar object, but got {type(cookies)}."
+            )
+
+    return cookies
 
 
 def merge_dict(*dicts: t.Unpack[t.Tuple[dict[str, t.Any], ...]]) -> dict[str, t.Any]:
@@ -86,30 +110,18 @@ class HttpClient(logger.LoggerMixin):
 
         return self._headers
 
+    @headers.setter
+    def headers(self, value):
+        if isinstance(value, dict):
+            self.headers.update(dict_to_headers(value))
+
     @property
     def cookies(self) -> RequestsCookieJar:
-        if self._cookies is None:
-            self._cookies = cookiejar_from_dict({})
-            return self._cookies
+        return cookiejar_from(self._cookies)
 
-        if isinstance(self._cookies, RequestsCookieJar):
-            return self._cookies
-        match self._cookies:
-            case str():
-                _cookie = SimpleCookie()
-                _cookie.load(self._cookies)
-                self._cookies = cookiejar_from_dict(
-                    {key: morsel.value for key, morsel in _cookie.items()}
-                )
-            case dict():
-                self._cookies = cookiejar_from_dict(self._cookies)
-            case _:
-                raise TypeError(
-                    "Cookies must be a dict,  a string, "
-                    f"or a RequestsCookieJar object, but got {type(self._cookies)}."
-                )
-
-        return self._cookies
+    @cookies.setter
+    def cookies(self, value):
+        self._cookies = cookiejar_from(value)
 
     def new(self):
         """Create a new instance of HttpClient."""

@@ -741,6 +741,19 @@ files = [
 typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
 
 [[package]]
+name = "pyexecjs"
+version = "1.5.1"
+description = "Run JavaScript code from Python"
+optional = false
+python-versions = "*"
+files = [
+    {file = "PyExecJS-1.5.1.tar.gz", hash = "sha256:34cc1d070976918183ff7bdc0ad71f8157a891c92708c00c5fbbff7a769f505c"},
+]
+
+[package.dependencies]
+six = ">=1.10.0"
+
+[[package]]
 name = "pygments"
 version = "2.17.2"
 description = "Pygments is a syntax highlighting package written in Python."
@@ -1142,4 +1155,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "cbf1ba36c14d951d71d0a23d827241a152348e240b36cc2d7b5175125dda6a34"
+content-hash = "03d02942ab4587addb893274ba9e6e70063822e076f0b76c14a029c497886ff2"

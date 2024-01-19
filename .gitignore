@@ -3,6 +3,7 @@
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 .ruff_cache
 tmp/
+node_modules/
 .idea
 .ruff_cache
 # User-specific stuff
