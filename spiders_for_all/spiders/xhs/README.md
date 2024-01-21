@@ -9,6 +9,7 @@
   - [2. 传入一个包含note\_id列表的文件, 回车换行](#2-传入一个包含note_id列表的文件-回车换行)
 - [爬取用户投稿的笔记](#爬取用户投稿的笔记)
 - [根据SQL下载笔记](#根据sql下载笔记)
+- [爬取笔记评论](#爬取笔记评论)
 - [Configuration](#configuration)
 
 # Features
@@ -16,6 +17,7 @@
 - [x] 根据note_id下载笔记内容以及笔记内的图片、视频数据
 - [x] 批量下载笔记
 - [x] 爬取用户投稿的笔记
+- [x] 爬取笔记评论
 
 
 # 前言
@@ -77,6 +79,12 @@ python -m spiders_for_all xhs download-by-author 5d9756b20000000001005857 \
 
 ```sh
 python -m spiders_for_all xhs download-by-sql "select note_id from t_xhs_author_notes limit 5" -s /tmp/xhs_download_by_sql
+```
+
+# 爬取笔记评论
+
+```sh
+python -m spiders_for_all xhs get-comments 653619a2000000000d006d1a
 ```
 
 

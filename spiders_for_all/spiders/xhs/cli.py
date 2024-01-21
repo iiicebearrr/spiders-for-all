@@ -147,3 +147,14 @@ def download_by_sql(sql: str, save_dir: Path, max_workers: int):
     )
 
     downloader.download()
+
+
+@cli.command("get-comments")
+@click.argument("note_id")
+def get_comments(note_id: str):
+    """Get comments by note id"""
+
+    spider = xhs.spiders.XhsCommentSpider(
+        note_id=note_id, sleep_before_next_request=(3, 6)
+    )
+    spider.run()
