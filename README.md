@@ -17,6 +17,7 @@
 - [Documentation](#documentation)
 - [Roadmap](#roadmap)
 - [Customization](#customization)
+- [Find me](#find-me)
 - [Known Issues](#known-issues)
 
 # Quick Preview 
@@ -59,7 +60,7 @@ pip install spiders-for-all # python 版本 >= 3.12
 - xhs
   - [x] 根据note_id爬取/批量爬取笔记
   - [x] 根据用户id爬取用户主页首页笔记
-  - [ ] 爬取笔记评论
+  - [x] 爬取笔记评论
 - [ ] GUI
 
 # Customization
@@ -126,6 +127,12 @@ pip install spiders-for-all # python 版本 >= 3.12
           # 从返回体中取出items, 必须
           pass
   ```
+
+# Find me
+
+- [小红书](https://www.xiaohongshu.com/user/profile/653619a2000000000d006d1a)
+- [bilibili](https://space.bilibili.com/634824012?spm_id_from=333.1007.0.0)
+  
 
 # Known Issues
 

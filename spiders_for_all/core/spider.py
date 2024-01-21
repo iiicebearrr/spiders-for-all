@@ -94,6 +94,7 @@ class BaseSpider(LoggerMixin):
         self.check_db()
 
         self.client = HttpClient(logger=self.logger)
+        self.response: Response | None = None
 
     def check_implementation(self):
         attrs_required = [
@@ -151,8 +152,10 @@ class BaseSpider(LoggerMixin):
             # self.debug(f"<== Response json: {json_data}")
             ret = self.response_model(**json_data)
             ret.raise_for_status()
-            return ret
-        return response
+        else:
+            ret = response
+        self.response = ret  # type: ignore
+        return ret
 
     def get_items_from_response(
         self, response: requests.Response | BaseModel
@@ -223,6 +226,7 @@ class BaseSpider(LoggerMixin):
                     set_={
                         field: getattr(insert_stmt.excluded, field)
                         for field in self.item_model.model_fields
+                        if hasattr(insert_stmt.excluded, field)
                     }
                 )
 

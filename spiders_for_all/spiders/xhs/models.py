@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 from enum import Enum
 
@@ -31,8 +33,52 @@ class XhsUserPostedResponseData(BaseModel):
     notes: list[XhsUserPostedNote]
 
 
+class XhsUserShort(BaseModel):
+    user_id: str
+    nickname: str
+
+
+class XhsTargetComment(BaseModel):
+    user_info: XhsUserShort
+    id: str
+
+
+class XhsNotePicture(BaseModel):
+    url_pre: str
+    url_default: str
+
+
+class XhsNoteComment(BaseModel):
+    user_info: XhsUserShort
+    at_users: list[XhsUserShort]
+    content: str
+    id: str
+    ip_location: str
+    like_count: int
+    liked: bool
+    note_id: str
+    sub_comments: list[XhsNoteComment] | None = None
+    sub_comment_cursor: str | None = None
+    sub_comment_has_more: bool | None = None
+    sub_comment_count: str | None = None
+    pictures: list[XhsNotePicture] | None = None
+    target_comment: XhsTargetComment | None = None
+
+
+class XhsNoteCommentResponseData(BaseModel):
+    cursor: str = ""
+    has_more: bool
+    time: int
+    user_id: str
+    comments: list[XhsNoteComment]
+
+
 class XhsUserPostedResponse(XhsResponse):
     data: XhsUserPostedResponseData
+
+
+class XhsNoteCommentResponse(XhsResponse):
+    data: XhsNoteCommentResponseData
 
 
 class XhsNoteType(Enum):
@@ -91,3 +137,15 @@ class XhsNoteQuery(BaseModel):
     cursor: str = ""
     user_id: str = Field(..., validation_alias="userId")
     has_more: bool = Field(..., validation_alias="hasMore")
+
+
+class XhsCommentQueryParam(BaseModel):
+    note_id: str
+    cursor: str
+    top_comment_id: str
+    image_formats: str
+
+
+class XhsMoreCommentQueryParam(XhsCommentQueryParam):
+    root_comment_id: str
+    num: int = 10

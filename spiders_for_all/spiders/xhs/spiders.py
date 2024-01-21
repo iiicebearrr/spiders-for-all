@@ -3,35 +3,24 @@ import typing as t
 from itertools import chain
 from typing import Iterable
 
-import execjs
 import requests
 from pydantic import HttpUrl
+from requests.models import Response as Response
 
 from spiders_for_all.conf import settings
+from spiders_for_all.core.client import HttpClient
 from spiders_for_all.core.spider import (
     BaseSpider,
     DbActionOnSave,
     RateLimitMixin,
+    SleepInterval,
     SpiderKwargs,
 )
-from spiders_for_all.spiders.xhs import const, db, models, patterns, schema
+from spiders_for_all.spiders.xhs import const, db, models, patterns, schema, sign
 from spiders_for_all.utils import helper
 from spiders_for_all.utils.logger import get_logger
 
 logger = get_logger("xhs")
-
-JS = None
-
-
-def init_js():
-    global JS
-
-    if JS is None:
-        if not settings.XHS_SIGN_JS_FILE.exists():
-            raise ValueError(f"File not found: {settings.XHS_SIGN_JS_FILE}")
-        JS = execjs.compile(settings.XHS_SIGN_JS_FILE.read_text("utf-8"))
-
-    return JS
 
 
 class BaseXhsSpider(BaseSpider):
@@ -40,7 +29,17 @@ class BaseXhsSpider(BaseSpider):
     session_manager = db.SessionManager
 
 
-class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
+class XhsSignMixin:
+    def sign(self, api: str, client: HttpClient) -> sign.SignData:
+        """Calculate sign and update headers of client"""
+        if "a1" not in client.cookies:
+            raise ValueError("You must set cookies value 'a1' for this spider")
+        result = sign.get_sign(api, client.cookies["a1"])
+        client.headers.update(result.model_dump())
+        return result
+
+
+class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
     api = const.API_AUTHOR_PAGE
     name = "author"
     alias = "作者主页"
@@ -56,7 +55,7 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
         self.uid = uid
         self.api = self.__class__.api.format(uid=uid)
 
-        self.js = init_js()
+        self.js = sign.get_execjs()
 
         super().__init__(**kwargs)
         self.record = record
@@ -68,23 +67,12 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
         )
         self.client.cookies = settings.XHS_COOKIES
 
-    def sign(self, api: str):
-        if "a1" not in self.client.cookies:
-            raise ValueError("You must set cookies value 'a1' for this spider")
-        try:
-            sign_data = self.js.call("get_xs", api, "", self.client.cookies["a1"])
-        except Exception:
-            raise ValueError(
-                f"Can not calculate sign, please check {settings.XHS_SIGN_JS_FILE}"
-            )
-
-        self.client.headers["x-s"] = sign_data["X-s"]
-        self.client.headers["x-t"] = str(sign_data["X-t"])
-
     def get_items_from_response(
         self,
         response: requests.Response,  # type: ignore
     ) -> t.Iterable[models.XhsUserPostedNote]:
+        # TODO: This section may be better to be moved to `get_items`
+        #       And here just return a raw response
         self.info("Searching notes info from response...")
         initial_info = patterns.RGX_FIND_INITIAL_INFO.search(response.text)
         if initial_info is None:
@@ -176,13 +164,18 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
                     ]
                 )
             )
-            self.sign(f"{url.path}?{url.query}")
+
+            self.sign(f"{url.path}?{url.query}", self.client)
+
             resp = self.client.get(str(url))
             resp = models.XhsUserPostedResponse(**resp.json())
             resp.raise_for_status()
             if resp.data.has_more:
                 self.sleep((3, 6))
             query.cursor = resp.data.cursor
+            self.info(
+                f"Got {len(resp.data.notes)} notes, next cursor: {query.cursor or 'None'}"
+            )
 
             yield from resp.data.notes
 
@@ -203,3 +196,151 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin):
         for item in ret:
             yield item
             self.record_note_id_list.append(item.note_id)
+
+
+class XhsCommentSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
+    api = const.API_COMMENTS
+    name = "comments"
+    alias = "评论"
+    description = "爬取笔记的评论"
+
+    database_model = schema.XhsNotesComments
+    item_model = models.XhsNoteComment
+    response_model = models.XhsNoteCommentResponse
+    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
+
+    def __init__(
+        self,
+        note_id: str,
+        sleep_before_next_request: SleepInterval | None = None,
+        **kwargs: t.Unpack[SpiderKwargs],
+    ):
+        self.note_id = note_id
+        self.js = sign.get_execjs()
+
+        super().__init__(**kwargs)
+
+        self.client.headers.update(settings.XHS_HEADERS)
+        self.client.headers.update(
+            {"origin": const.ORIGIN, "referer": const.ORIGIN + "/"}
+        )
+        self.client.cookies = settings.XHS_COOKIES
+
+        self.cursor: str = ""
+
+        self.api_for_sign = str(HttpUrl(const.API_COMMENTS).path)
+
+        self.sleep_before_next_request = sleep_before_next_request
+
+        self.root_comment_id: str = ""
+
+        self.total_count = 0
+
+    def get_items_from_response(
+        self, response: models.XhsNoteCommentResponse
+    ) -> Iterable[models.XhsNoteComment]:
+        return response.data.comments
+
+    def get_request_args(self) -> dict:
+        if self.root_comment_id:
+            query = models.XhsMoreCommentQueryParam(
+                note_id=self.note_id,
+                cursor=self.cursor,
+                top_comment_id="",
+                image_formats=const.API_PARAM_IMG_FORMATS,
+                root_comment_id=self.root_comment_id,
+            ).model_dump()
+        else:
+            query = models.XhsCommentQueryParam(
+                note_id=self.note_id,
+                cursor=self.cursor,
+                top_comment_id="",
+                image_formats=const.API_PARAM_IMG_FORMATS,
+            ).model_dump()
+
+        self.sign(f"{self.api_for_sign}?{query}", self.client)
+
+        return {
+            "params": query,
+        }
+
+    def get_items(self) -> Iterable[models.XhsNoteComment]:
+        has_more = True
+
+        with self.client:
+            while has_more:
+                comments: list[models.XhsNoteComment] = self._get_items()  # type: ignore
+
+                count = 0
+
+                for comment in comments:
+                    self.info(f"[Content]: {comment.content}")
+                    yield comment
+                    count += 1
+                    if comment.sub_comments:
+                        count += len(comment.sub_comments)
+                        self.warning(
+                            f"{comment.id} has {len(comment.sub_comments)} displayed sub comments to fetch, "
+                            " and the other sub comments will be fetched after all displayed sub comments fetched."
+                        )
+                        yield from comment.sub_comments
+
+                self.response: models.XhsNoteCommentResponse
+
+                self.total_count += count
+                self.info(
+                    f"{count} comments fetched this time. Total fetched: {self.total_count}"
+                )
+
+                has_more = self.response.data.has_more
+                self.cursor = self.response.data.cursor
+
+                if has_more:
+                    self.sleep(self.sleep_before_next_request)
+
+    def item_to_dict(self, item: models.XhsNoteComment, **extra) -> dict:
+        pictures = (
+            [] if item.pictures is None else [pic.url_default for pic in item.pictures]
+        )
+        return {
+            "comment_id": item.id,
+            "content": item.content,
+            "ip_location": item.ip_location,
+            "like_count": item.like_count,
+            "liked": item.liked,
+            "note_id": self.note_id,
+            "target_comment_id": item.target_comment.id
+            if item.target_comment is not None
+            else None,
+            "pictures": ",".join(pictures),
+            "sub_comment_cursor": item.sub_comment_cursor,
+            "sub_comment_has_more": item.sub_comment_has_more,
+            "sub_comment_count": int(item.sub_comment_count)
+            if item.sub_comment_count
+            else 0,
+        }
+
+    def get_sub_comments(self) -> Iterable[models.XhsNoteComment]:
+        # Create a new client for sub comments fetching
+        self.client = self.client.new()
+        # Change api to sub api
+        self.api = const.API_SUB_COMMENTS
+        with self.session() as s:
+            sub_comments = s.query(schema.XhsNotesComments).where(
+                schema.XhsNotesComments.note_id == self.note_id,
+                schema.XhsNotesComments.sub_comment_cursor.isnot(None),
+                schema.XhsNotesComments.sub_comment_has_more.is_(True),
+            )
+            count = sub_comments.count()
+
+            self.info(f"Found {count} sub comments need to be fetched.")
+
+            for sub_comment in sub_comments:
+                self.root_comment_id = sub_comment.comment_id
+                self.cursor = sub_comment.sub_comment_cursor  # type: ignore
+                self.info(f"Fetching sub comments of {self.root_comment_id}...")
+                yield from self.get_items()
+
+    def save_items(self, items: Iterable):
+        super().save_items(items)
+        super().save_items(self.get_sub_comments())
