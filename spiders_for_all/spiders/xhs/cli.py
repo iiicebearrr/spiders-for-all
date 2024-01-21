@@ -151,10 +151,12 @@ def download_by_sql(sql: str, save_dir: Path, max_workers: int):
 
 @cli.command("get-comments")
 @click.argument("note_id")
-def get_comments(note_id: str):
+@click.option("--disable-rate-limit", "-d", is_flag=True)
+def get_comments(note_id: str, disable_rate_limit: bool = False):
     """Get comments by note id"""
 
     spider = xhs.spiders.XhsCommentSpider(
-        note_id=note_id, sleep_before_next_request=(3, 6)
+        note_id=note_id,
+        sleep_before_next_request=(3, 6) if not disable_rate_limit else None,
     )
     spider.run()
