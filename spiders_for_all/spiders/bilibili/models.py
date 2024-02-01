@@ -243,3 +243,53 @@ class WbiInfo(BaseModel):
     @cached_property
     def sub_key(self) -> str:
         return self.sub_url.path.split("/")[-1].split(".")[0]  # type: ignore
+
+
+class FeedResponse(BilibiliResponse):
+    data: FeedData
+
+
+class FeedData(BaseModel):
+    has_more: bool
+    items: list[FeedItem]
+    offset: str
+
+
+class FeedItemModuleStatItem(BaseModel):
+    count: int
+
+
+class FeedItemModuleStat(BaseModel):
+    comment: FeedItemModuleStatItem
+    like: FeedItemModuleStatItem
+    forward: FeedItemModuleStatItem
+
+
+class FeedItemModuleDynamicDesc(BaseModel):
+    text: str
+
+
+class FeedItemModuleDynamic(BaseModel):
+    desc: FeedItemModuleDynamicDesc
+
+
+class FeedItemModuleAuthor(BaseModel):
+    jump_url: str
+    pub_time: str
+    pub_action: str
+    name: str
+
+    @property
+    def author_action(self) -> str:
+        return self.name + self.pub_action
+
+
+class FeedItemModules(BaseModel):
+    module_author: FeedItemModuleAuthor
+    module_dynamic: FeedItemModuleDynamic
+    module_stat: FeedItemModuleStat
+
+
+class FeedItem(BaseModel):
+    id_str: str
+    modules: FeedItemModules
