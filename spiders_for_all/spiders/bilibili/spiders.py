@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import random
 import time
 import typing
+import urllib.parse
 from typing import TypeAlias
 
 from pydantic import BaseModel
 
-from spiders_for_all.conf import settings
 from spiders_for_all.core import spider
 from spiders_for_all.spiders.bilibili import db, models, schema
 from spiders_for_all.utils.logger import get_logger
@@ -391,8 +392,6 @@ class AuthorSpider(BaseBilibiliPageSpider):
     database_model = schema.BilibiliAuthorVideo
     item_model = models.AuthorVideoItem
 
-    encrypt_string_fmt = "dm_cover_img_str={dm_cover_img_str}&dm_img_list=%5B%5D&dm_img_str={dm_img_str}&keyword=&mid={mid}&order=pubdate&order_avoided=true&platform=web&pn={pn}&ps={ps}&tid=&web_location="
-
     db_action_on_save = spider.DbActionOnSave.UPDATE_OR_CREATE
 
     def __init__(
@@ -528,28 +527,40 @@ class AuthorSpider(BaseBilibiliPageSpider):
         return ret
 
     def get_wrid(self, params: str) -> str:
-        md5 = hashlib.md5()
-
-        md5.update(
-            (params + self.key).encode(),
-        )
-
-        return md5.hexdigest()
+        return hashlib.md5((params + self.key).encode()).hexdigest()
 
     def get_request_args(self) -> dict:
         wts = round(time.time())
 
-        params = self.encrypt_string_fmt.format(
-            mid=self.mid,
-            ps=self.page_size,
-            pn=self.page_number,
-            dm_img_str=settings.BILIBILI_PARAM_DM_IMG_STR,
-            dm_cover_img_str=settings.BILIBILI_PARAM_DM_COVER_IMG_STR,
-        )
+        dm_rand = "ABCDEFGHIJK"
+        dm_img_list = "[]"
+        dm_img_str = "".join(random.sample(dm_rand, 2))
+        dm_cover_img_str = "".join(random.sample(dm_rand, 2))
+        dm_img_inter = '{"ds":[],"wh":[0,0,0],"of":[0,0,0]}'
 
-        wrid = self.get_wrid(params + f"&wts={wts}")
+        params = {
+            "mid": self.mid,
+            "ps": self.page_size,
+            "tid": 0,
+            "pn": self.page_number,
+            "keyword": "",
+            "order": "pubdate",
+            "platform": "web",
+            "web_location": "",
+            "dm_img_list": dm_img_list,
+            "dm_img_str": dm_img_str,
+            "dm_cover_img_str": dm_cover_img_str,
+            "dm_img_inter": dm_img_inter,
+            "wts": wts,
+        }
 
-        params = "&".join([params, f"w_rid={wrid}", f"wts={wts}"])
+        params = dict(sorted(params.items()))
+
+        query = urllib.parse.urlencode(params)
+
+        wrid = self.get_wrid(query)
+
+        params["w_rid"] = wrid
 
         return {
             "params": params,
