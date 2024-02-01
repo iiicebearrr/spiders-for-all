@@ -55,7 +55,7 @@ pip install spiders-for-all # python 版本 >= 3.12
 - bilibili
   - [x] 综合热门、入站必刷等栏目爬虫
   - [x] 根据bvid爬取/批量爬取视频
-  - [x] 根据用户id爬取用户主页投稿视频(B站更新反爬策略，该接口暂时不可用)
+  - [x] 根据用户id爬取用户主页投稿视频
   - [ ] 爬取用户动态
 - xhs
   - [x] 根据note_id爬取/批量爬取笔记
@@ -139,4 +139,4 @@ pip install spiders-for-all # python 版本 >= 3.12
 - [x] (已解决)小红书爬取用户投稿的笔记时, 由于小红书签名算法的问题尚未解决, 只能爬取用户投稿的首页数据, 需要下拉加载的数据暂时无法爬取(签名算法借鉴了[Spider-XHS](https://github.com/cv-cat/Spider_XHS.git))
 - [x] 低版本的sqlite可能不支持`ON CONFLICT DO UPDATE`语法, 如果遇到该问题请尝试升级sqlite版本 
 - [x] 大批量下载视频时可能偶现下载中断导致失败的情况, 这种情况请在所有任务下载完成后, 运行`grep ERROR logs/bilibili.log`可以查看有哪些视频下载失败, 然后收集bvid重新下载即可。未来会考虑处理这种情况
-- [ ] bilibili近期(2024-01-20左右)更新了用户投稿接口的反爬策略, 新增了`dm_img_inter`参数, 目前作者还没有时间实现该参数的生成算法, 所以该接口暂时无法使用, 但是如果你实现了该参数的生成算法, 可以通过修改`spiders_for_all.spiders.bilibili.AuthorSpider`中的`get_request_args`方法来继续使用该接口
+- [x] (已解决)bilibili近期(2024-01-20左右)更新了用户投稿接口的反爬策略, 新增了`dm_img_inter`参数, 目前作者还没有时间实现该参数的生成算法, 所以该接口暂时无法使用, 但是如果你实现了该参数的生成算法, 可以通过修改`spiders_for_all.spiders.bilibili.AuthorSpider`中的`get_request_args`方法来继续使用该接口
