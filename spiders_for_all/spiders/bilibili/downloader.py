@@ -66,7 +66,7 @@ class BilibiliDownloader(base_downloader.BaseDownloader):
         self.temp_video_file: Path | None = None
 
         if self.sess_data:
-            self.client.cookies.update({"SESSDATA": self.sess_data})
+            self.client.set_cookies("SESSDATA", self.sess_data)
 
     def get_output_filename(self) -> str:
         return self.title

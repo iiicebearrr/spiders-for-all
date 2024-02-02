@@ -326,5 +326,15 @@ def download_by_sql(
     multiple_downloader.download()
 
 
+@cli.command("fetch-feed")
+@click.argument("mid")
+def fetch_feed(mid: str):
+    """Fetch feed by mid"""
+    feed_spider = spiders.AuthorFeedSpaceSpider(
+        mid=mid, sleep_before_next_request=(3, 6)
+    )
+    feed_spider.run()
+
+
 if __name__ == "__main__":
     cli()  # pragma: no cover

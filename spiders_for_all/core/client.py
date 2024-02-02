@@ -67,6 +67,7 @@ class RequestKwargs(t.TypedDict):
     headers: t.NotRequired[dict]
     cookies: t.NotRequired[dict]
     proxies: t.NotRequired[dict]
+    hooks: t.NotRequired[dict]
 
 
 class HttpClient(logger.LoggerMixin):
@@ -122,6 +123,10 @@ class HttpClient(logger.LoggerMixin):
     @cookies.setter
     def cookies(self, value):
         self._cookies = cookiejar_from(value)
+
+    def set_cookies(self, key: str, value: str):
+        self._cookies = cookiejar_from(self._cookies)
+        self._cookies.set(key, value)
 
     def new(self):
         """Create a new instance of HttpClient."""

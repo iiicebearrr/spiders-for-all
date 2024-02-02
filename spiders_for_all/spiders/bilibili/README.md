@@ -9,6 +9,7 @@
   - [1. 多个bvid直接传入命令行, 逗号分隔](#1-多个bvid直接传入命令行-逗号分隔)
   - [2. 传入一个包含bvid列表的文件, 回车换行](#2-传入一个包含bvid列表的文件-回车换行)
 - [爬取用户投稿视频](#爬取用户投稿视频)
+- [爬取用户动态](#爬取用户动态)
 - [根据SQL下载视频](#根据sql下载视频)
 - [列出内置的爬虫](#列出内置的爬虫)
 - [运行内置爬虫](#运行内置爬虫)
@@ -83,6 +84,13 @@ python -m spiders_for_all bilibili download-by-author -m 483879799 -s /tmp/bilib
 >*注意*:
 > 该命令仅会保存并下载本次爬取的视频, 爬取的视频信息(title, bvid等)会保存到本地数据库`.db/bilibili.db`的`t_bilibili_author_video`表中, 这也就意味着如果你使用该命令分别爬取了不同的用户投稿视频, 本地数据库将存储全部这些数据。如果你需要一次性下载多个用户的投稿视频, 可以通过`download-by-sql`这个命令来指定你要下载哪些视频, 详见[根据SQL下载视频](#根据sql下载视频), 同时`run-spider author`也提供了对应的途径, 详见[运行示例](../../../example/bilibili/example_run_spider.sh)中最后关于`author`的部份
 
+# 爬取用户动态
+
+**该功能必须提供SESSDATA, 见[配置](#配置)**
+
+```sh
+python -m spiders_for_all bilibili fetch-feed MID
+```
 
 # 根据SQL下载视频
 
@@ -159,7 +167,7 @@ class YourSpider(BaseSpider):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.client.headers.update({"your_header_name":"your_header_value"})
-    self.client.cookies.update({"your_cookie_name":"your_cookie_value"})
+    self.client.set_cookies("your_cookie_name", "your_cookie_value")
 ```
 
 ## 2. 在`BaseSpider`爬虫内部设置你自己的headers和cookies
@@ -176,7 +184,7 @@ class YourSpider(BaseSpider):
     # kwargs的参数会原封不动的传递给requests.request, 你也可以通过直接修改kwargs["headers"]和kwargs["cookies"]来实现
 
     self.client.headers.update({"your_header_name":"your_header_value"})
-    self.client.cookies.update({"your_cookie_name":"your_cookie_value"})
+    self.client.set_cookies("your_cookie_name", "your_cookie_value")
     return super().request_items(method, url, **kwargs)
 ```
 
@@ -189,7 +197,7 @@ from spiders_for_all.core.client import HttpClient
 client = HttpClient()
 for _ in range(10):
   client.headers.update({"your_header_name":"your_header_value"})
-  client.cookies.update({"your_cookie_name":"your_cookie_value"})
+  client.set_cookies("your_cookie_name", "your_cookie_value")
   client.request(...)
 
 ```

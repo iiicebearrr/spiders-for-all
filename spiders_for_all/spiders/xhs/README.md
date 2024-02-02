@@ -96,7 +96,7 @@ python -m spiders_for_all xhs get-comments 653619a2000000000d006d1a
 |配置名称|类型|描述|默认值|示例|
 |---|---|---|---|---|
 |XHS_HEADERS|json|全局请求头, 每次调用都会携带, 可以通过`self.client.headers.update`覆盖|None|XHS_HEADERS={"Referer":"referer"}|
-|XHS_COOKIES|str|全局cookie, 每次调用都会携带, 可以通过`self.client.cookies.update`覆盖|None|XHS_COOKIES="key=value;key2=value2"|
+|XHS_COOKIES|str|全局cookie, 每次调用都会携带, 可以通过`self.client.set_cookies`覆盖|None|XHS_COOKIES="key=value;key2=value2"|
 |XHS_SIGN_JS_FILE|str|用来签名的js文件,默认使用仓库中的js文件`spiders_for_all/static/xhs.js`, 需要自行实现一个`get_xs`方法|XHS_SIGN_JS_FILE=/path/to/your/js|
 
 

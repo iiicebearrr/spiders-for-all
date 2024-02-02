@@ -5,20 +5,25 @@ import random
 import time
 import typing
 import urllib.parse
-from typing import TypeAlias
+from logging import Logger
+from typing import Iterable
 
+import requests
 from pydantic import BaseModel
 
+from spiders_for_all.conf import settings
 from spiders_for_all.core import spider
+from spiders_for_all.core.spider import (
+    DbActionOnInit,
+    DbActionOnSave,
+    RateLimitMixin,
+    SleepInterval,
+)
 from spiders_for_all.spiders.bilibili import db, models, schema
 from spiders_for_all.utils.logger import get_logger
 
 Session = db.Session
 
-_BilibiliResponse: TypeAlias = (
-    models.BilibiliPlayResponse | models.BilibiliVideoResponse
-)
-_BilibiliResponseTyped: TypeAlias = typing.Type[_BilibiliResponse]
 
 logger = get_logger("bilibili")
 
@@ -37,18 +42,30 @@ def calculate_end_page(total: int, page_size: int, start_page_number: int) -> in
     )
 
 
+def check_response_352(response: requests.Response, *args, **kwargs):
+    response.raise_for_status()
+    code = response.json().get("code")
+    if code != 0:
+        raise ValueError(
+            f"Response failed with code: {code}. Message: {response.json().get('message')}"
+        )
+
+
 class BaseBilibiliSpider(spider.BaseSpider):
     platform = "bilibili"
-    response_model: _BilibiliResponseTyped
+    response_model: typing.Type[models.BilibiliResponse] | None
     logger = logger
     session_manager = db.SessionManager
 
     def get_items_from_response(
         self,
-        response: _BilibiliResponse,  # type: ignore
+        response: models.BilibiliResponse,  # type: ignore
     ) -> typing.Iterable[BaseModel]:
-        response.raise_for_status()
         return response.data.list_data
+
+    def request_items(self, method: str, url: str, **kwargs):
+        kwargs["hooks"] = {"response": check_response_352}
+        return super().request_items(method, url, **kwargs)
 
 
 class BaseBilibiliPageSpider(BaseBilibiliSpider, spider.PageSpider):
@@ -422,7 +439,7 @@ class AuthorSpider(BaseBilibiliPageSpider):
         )
 
         if sess_data:
-            self.client.cookies.update({"SESSDATA": sess_data})
+            self.client.set_cookies("SESSDATA", sess_data)
 
         self.mid = mid
 
@@ -576,14 +593,101 @@ class AuthorSpider(BaseBilibiliPageSpider):
         return []
 
 
-# TODO
-# class AuthorFeedSpaceSpider(BaseBilibiliSpider):
-#     api = ...
-#     name = "feed"
-#     alias = "up主动态"
+class AuthorFeedSpaceSpider(BaseBilibiliSpider, RateLimitMixin):
+    api = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space"
+    api_get_buvid3 = "https://api.bilibili.com/x/frontend/finger/spi"
+    api_activate_buvid3 = (
+        "https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi"
+    )
+    name = "feed"
+    alias = "up主动态"
 
-#     db_action_on_save = spider.DbActionOnSave.UPDATE_OR_CREATE
+    db_action_on_save = spider.DbActionOnSave.UPDATE_OR_CREATE
 
-#     response_model = ...
-#     database_model = ...
-#     item_model = ...
+    response_model = models.FeedResponse
+    database_model = schema.BilibiliAuthorFeed
+    item_model = models.FeedItem
+
+    def __init__(
+        self,
+        mid: str,
+        *args,
+        logger: Logger | None = None,
+        sleep_before_next_request: SleepInterval | None = None,
+        db_action_on_init: DbActionOnInit | None = None,
+        db_action_on_save: DbActionOnSave | None = None,
+        **kwargs,
+    ):
+        self.mid = mid
+        self.sess_data = settings.BILIBILI_COOKIE_SESS_DATA
+        if self.sess_data is None:
+            raise ValueError("sess_data is required for this spider.")
+        super().__init__(
+            *args,
+            logger=logger,
+            db_action_on_init=db_action_on_init,
+            db_action_on_save=db_action_on_save,
+            **kwargs,
+        )
+        self.offset: str = ""
+        self.sleep_before_next_request = sleep_before_next_request
+        self.client.set_cookies(
+            "SESSDATA",
+            self.sess_data,
+        )
+
+    def get_items_from_response(
+        self, response: models.FeedResponse
+    ) -> Iterable[BaseModel]:
+        self.response = response
+        return response.data.items
+
+    def get_items(self) -> Iterable[models.FeedItem]:
+        has_more = True
+
+        while has_more:
+            for item in self._get_items():  # type: ignore
+                item: models.FeedItem
+                yield item
+
+                author_action = item.modules.module_author.author_action
+                pub_time = item.modules.module_author.pub_time
+                desc = self.get_feed_text(item)
+                self.client.info(
+                    f"{author_action} at {pub_time}{'.'if not desc else ': ' +desc}"
+                )
+            self.response: models.FeedResponse
+            has_more = self.response.data.has_more
+            self.offset = self.response.data.offset
+            if has_more:
+                self.sleep(self.sleep_before_next_request)
+
+    def get_feed_text(self, item: models.FeedItem) -> str | None:
+        desc = item.modules.module_dynamic.desc
+        if desc is not None:
+            desc = desc.text
+        return desc
+
+    def item_to_dict(self, item: models.FeedItem, **extra) -> dict:
+        return {
+            "id_str": item.id_str,
+            "pub_time": item.modules.module_author.pub_time,
+            "action": item.modules.module_author.author_action,
+            "jump_url": item.modules.module_author.jump_url,
+            "desc": self.get_feed_text(item),
+            "comment": item.modules.module_stat.comment.count,
+            "like": item.modules.module_stat.like.count,
+            "forward": item.modules.module_stat.forward.count,
+        }
+
+    def get_request_args(self) -> dict:
+        params = {
+            "offset": self.offset,
+            "host_mid": self.mid,
+            "timezone_offset": -480,
+            "platform": "web",
+            "web_location": "",
+            "features": "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote",
+        }
+
+        return {"params": params}

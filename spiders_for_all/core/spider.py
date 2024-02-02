@@ -150,10 +150,12 @@ class BaseSpider(LoggerMixin):
             json_data = response.json()
 
             # self.debug(f"<== Response json: {json_data}")
+
             ret = self.response_model(**json_data)
             ret.raise_for_status()
         else:
             ret = response
+
         self.response = ret  # type: ignore
         return ret
 

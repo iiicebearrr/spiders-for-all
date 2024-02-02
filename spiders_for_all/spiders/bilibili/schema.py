@@ -210,3 +210,19 @@ class BilibiliAuthorVideo(BaseTable):
     description: orm.Mapped[str] = orm.mapped_column(comment="description of a video")
     is_pay: orm.Mapped[int] = orm.mapped_column(comment="is_pay of a video")
     length: orm.Mapped[int] = orm.mapped_column(comment="length of a video")
+
+
+class BilibiliAuthorFeed(BaseTable):
+    __tablename__ = "t_bilibili_author_feed"
+    __doc__ = "bilibili author feed information"
+
+    id_str: orm.Mapped[str] = orm.mapped_column(comment="id_str of a feed")
+    pub_time: orm.Mapped[str] = orm.mapped_column(comment="pub_time of a feed")
+    action: orm.Mapped[str] = orm.mapped_column(comment="action of a feed")
+    jump_url: orm.Mapped[str] = orm.mapped_column(
+        comment="jump_url of a feed", nullable=True
+    )
+    desc: orm.Mapped[str] = orm.mapped_column(comment="desc of a feed", nullable=True)
+    comment: orm.Mapped[int] = orm.mapped_column(comment="comment of a feed")
+    like: orm.Mapped[int] = orm.mapped_column(comment="like of a feed")
+    forward: orm.Mapped[int] = orm.mapped_column(comment="forward of a feed")
