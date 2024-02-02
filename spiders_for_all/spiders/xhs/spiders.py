@@ -34,8 +34,9 @@ class XhsSignMixin:
         """Calculate sign and update headers of client"""
         if "a1" not in client.cookies:
             raise ValueError("You must set cookies value 'a1' for this spider")
-        result = sign.get_sign(api, client.cookies["a1"])
-        client.headers.update(result.model_dump())
+        client.debug(f"Signing with {api}, {client.cookies['a1']}")
+        result = sign.get_sign(api, a1=client.cookies["a1"])
+        client.headers.update(result.model_dump(by_alias=True))
         return result
 
 
@@ -54,9 +55,6 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
     ):
         self.uid = uid
         self.api = self.__class__.api.format(uid=uid)
-
-        self.js = sign.get_execjs()
-
         super().__init__(**kwargs)
         self.record = record
         self.record_note_id_list = []
@@ -79,6 +77,7 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
             self.debug(f"Raw html: {response.text}")
             raise ValueError("Initial info not found.")
         initial_info = initial_info.group(1)  # type: ignore
+
         try:
             json_data = helper.javascript_to_dict(initial_info)
         except json.JSONDecodeError:
@@ -97,6 +96,8 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
             raise ValueError("Notes not found.")
 
         next_query = self.get_queries((models.XhsNoteQuery(**q) for q in notes_queries))
+
+        # TODO: More logs
 
         if next_query is None:
             # No more notes
@@ -216,7 +217,6 @@ class XhsCommentSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
         **kwargs: t.Unpack[SpiderKwargs],
     ):
         self.note_id = note_id
-        self.js = sign.get_execjs()
 
         super().__init__(**kwargs)
 

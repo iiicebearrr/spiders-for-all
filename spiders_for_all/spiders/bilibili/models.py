@@ -270,7 +270,7 @@ class FeedItemModuleDynamicDesc(BaseModel):
 
 
 class FeedItemModuleDynamic(BaseModel):
-    desc: FeedItemModuleDynamicDesc
+    desc: FeedItemModuleDynamicDesc | None
 
 
 class FeedItemModuleAuthor(BaseModel):

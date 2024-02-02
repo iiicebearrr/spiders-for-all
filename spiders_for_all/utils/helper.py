@@ -9,7 +9,8 @@ from fake_useragent import UserAgent  # type: ignore
 
 Ids: t.TypeAlias = str | list[str] | Path | list[Path] | t.BinaryIO
 
-ua = UserAgent(browsers=["chrome"])
+# This useragent is too old. Use from settings
+ua = UserAgent(browsers=["chrome"], min_percentage=1.1)
 
 RGX_CHECK_FILENAME = re.compile(r"[\\/:*?\"<>|]")
 
@@ -72,3 +73,7 @@ def read_ids_to_list(ids: Ids) -> list[str]:
             raise TypeError(
                 f"ids should be str, Path, BinaryIO or list, got {type(ids)}"
             )
+
+
+if __name__ == "__main__":
+    print(ua.random)

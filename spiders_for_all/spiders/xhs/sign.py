@@ -6,7 +6,10 @@ from spiders_for_all.conf import settings
 
 class SignData(BaseModel):
     x_s: str = Field(..., validation_alias="X-s", serialization_alias="x-s")
-    x_t: int = Field(..., validation_alias="X-t", serialization_alias="x-t")
+    x_t: int | str = Field(..., validation_alias="X-t", serialization_alias="x-t")
+    # x_s_common: str = Field(
+    #     ..., validation_alias="X-s-common", serialization_alias="x-s-common"
+    # )
 
     @field_validator("x_t")
     def to_str(cls, v):
