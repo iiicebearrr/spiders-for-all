@@ -160,3 +160,27 @@ def get_comments(note_id: str, disable_rate_limit: bool = False):
         sleep_before_next_request=(3, 6) if not disable_rate_limit else None,
     )
     spider.run()
+
+
+@cli.command("search")
+@click.argument("keyword")
+@click.option("--total", "-t", type=int, default=100)
+@click.option(
+    "--sort",
+    "-s",
+    type=click.Choice(["general", "time_descending", "popularity_descending"]),
+    default="general",
+)
+@click.option(
+    "--note-type", "-n", type=int, default=0, help="0: all 1: video 2: normal"
+)
+def search(keyword: str, total: int, sort: str, note_type: int):
+    """Search notes by keyword"""
+    spider = xhs.spiders.XhsSearchSpider(
+        keyword=keyword,
+        total=total,
+        sort=xhs.models.XhsSortType(sort),
+        note_type=xhs.models.XhsSearchNoteType(note_type),
+        sleep_before_next_request=(3, 6),
+    )
+    spider.run()

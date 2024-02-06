@@ -1,17 +1,18 @@
 import json
+import re
 import typing as t
 from itertools import chain
 from typing import Iterable
 
 import requests
 from pydantic import HttpUrl
-from requests.models import Response as Response
 
 from spiders_for_all.conf import settings
-from spiders_for_all.core.client import HttpClient
+from spiders_for_all.core.client import HttpClient, RequestKwargs
 from spiders_for_all.core.spider import (
     BaseSpider,
     DbActionOnSave,
+    PageSpider,
     RateLimitMixin,
     SleepInterval,
     SpiderKwargs,
@@ -29,13 +30,21 @@ class BaseXhsSpider(BaseSpider):
     session_manager = db.SessionManager
 
 
+class BaseXhsSearchSpider(PageSpider):
+    platform = "xhs"
+    logger = logger
+    session_manager = db.SessionManager
+
+
 class XhsSignMixin:
-    def sign(self, api: str, client: HttpClient) -> sign.SignData:
+    def sign(
+        self, api: str, client: HttpClient, data: dict | str | None = None
+    ) -> sign.SignData:
         """Calculate sign and update headers of client"""
         if "a1" not in client.cookies:
             raise ValueError("You must set cookies value 'a1' for this spider")
         client.debug(f"Signing with {api}, {client.cookies['a1']}")
-        result = sign.get_sign(api, a1=client.cookies["a1"])
+        result = sign.get_sign(api, a1=client.cookies["a1"], data=data)
         client.headers.update(result.model_dump(by_alias=True))
         return result
 
@@ -344,3 +353,107 @@ class XhsCommentSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
     def save_items(self, items: Iterable):
         super().save_items(items)
         super().save_items(self.get_sub_comments())
+
+
+class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
+    api = const.API_SEARCH
+    name = "search"
+    alias = "搜索"
+    description = "主页搜索笔记"
+
+    database_model = schema.XhsSearchNotes
+    item_model = models.XhsSearchNote
+    response_model = models.XhsSearchNotesResponse
+    db_action_on_save = DbActionOnSave.DELETE_AND_CREATE
+
+    def __init__(
+        self,
+        keyword: str,
+        total: int,
+        sort: models.XhsSortType = models.XhsSortType.GENERAL,
+        note_type: models.XhsSearchNoteType = models.XhsSearchNoteType.ALL,
+        sleep_before_next_request: SleepInterval | None = None,
+        **kwargs: t.Unpack[SpiderKwargs],
+    ):
+        self.keyword = keyword
+        self.sort = sort
+        self.note_type = note_type
+
+        super().__init__(
+            total=total, sleep_before_next_request=sleep_before_next_request, **kwargs
+        )
+
+        self.client.headers.update(settings.XHS_HEADERS)
+        self.client.headers.update(
+            {
+                "origin": const.ORIGIN,
+                "referer": const.ORIGIN + "/",
+                "authority": "edith.xiaohongshu.com",
+                "accept": "application/json, text/plain, */*",
+                "accept-language": "en,zh-CN;q=0.9,zh;q=0.8",
+                "content-type": "application/json;charset=UTF-8",
+            }
+        )
+        self.client.cookies = settings.XHS_COOKIES
+
+    def get_items_from_response(
+        self, response: models.XhsSearchNotesResponse
+    ) -> t.Iterable[models.XhsSearchNote]:
+        return response.data.items or []
+
+    def item_to_dict(self, item: models.XhsSearchNote, **extra) -> dict:
+        return super().item_to_dict(item, keyword=self.keyword, **extra)
+
+    def request_items(self, method: str, url: str, **kwargs: t.Unpack[RequestKwargs]):
+        return super().request_items("POST", url, **kwargs)
+
+    def get_request_args(self) -> dict:
+        raw_query = {
+            "image_scenes": "FD_PRV_WEBP,FD_WM_WEBP",
+            "keyword": "",
+            "note_type": "0",
+            "page": "",
+            "page_size": "20",
+            "search_id": "2c7hu5b3kzoivkh848hp0",
+            "sort": "general",
+        }
+
+        data = json.dumps(raw_query, separators=(",", ":"))
+
+        data = re.sub(r'"keyword":".*?"', f'"keyword":"{self.keyword}"', data)
+        data = re.sub(r'"page":".*?"', f'"page":"{self.page_number}"', data)
+        data = re.sub(r'"sort":".*?"', f'"sort":"{self.sort.value}"', data)
+        data = re.sub(
+            r'"note_type":".*?"', f'"note_type":"{self.note_type.value}"', data
+        )
+
+        # TODO: Remove hard code
+        self.sign("/api/sns/web/v1/search/notes", self.client, data=data)
+
+        return {
+            "data": data.encode("utf-8"),
+        }
+
+    # def get_items(self) -> t.Iterable[models.XhsSearchNote]:
+    #
+    #     has_more = True
+    #     count = 0
+    #
+    #     with self.client:
+    #         while has_more:
+    #             notes: list[models.XhsSearchNote] = self._get_items()  # type: ignore
+    #
+    #             for note in notes:
+    #                 yield note
+    #                 count += 1
+    #                 self.info(f"Note id: {note.id}. {count}/{self.total}")
+    #                 if self.record:
+    #                     self.record_note_id_list.append(note.note_id)
+    #
+    #                 if count >= self.total:
+    #                     has_more = False
+    #                     break
+    #
+    #             self.response: models.XhsSearchNotesResponse
+    #
+    #             has_more = self.response.data.has_more

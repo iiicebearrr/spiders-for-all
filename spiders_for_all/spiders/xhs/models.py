@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 from enum import Enum
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from spiders_for_all.core.response import Response
 
@@ -149,3 +149,41 @@ class XhsCommentQueryParam(BaseModel):
 class XhsMoreCommentQueryParam(XhsCommentQueryParam):
     root_comment_id: str
     num: int = 10
+
+
+class XhsSearchNoteType(Enum):
+    ALL = 0
+    NORMAL = 2
+    VIDEO = 1
+
+
+class XhsSortType(Enum):
+    GENERAL = "general"
+    TIME_DESCENDING = "time_descending"
+    POPULARITY_DESCENDING = "popularity_descending"
+
+
+class XhsSearchNoteQuery(BaseModel):
+    image_formats: list[str] = ["jpg", "webp", "avif"]
+    keyword: str
+    note_type: XhsSearchNoteType = XhsSearchNoteType.NORMAL
+    page: str
+    page_size: str
+    search_id: str
+    sort: XhsSortType = XhsSortType.GENERAL
+
+    model_config = ConfigDict(use_enum_values=True)
+
+
+class XhsSearchNote(BaseModel):
+    # id is enough.
+    note_id: str = Field(..., validation_alias="id")
+
+
+class XhsSearchNotesResponseData(BaseModel):
+    has_more: bool
+    items: list[XhsSearchNote] | None = None
+
+
+class XhsSearchNotesResponse(XhsResponse):
+    data: XhsSearchNotesResponseData

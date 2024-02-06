@@ -23,7 +23,6 @@ from spiders_for_all.utils.logger import LoggerMixin, default_logger
 
 SPIDERS: dict[str, dict[str, t.Type[BaseSpider]]] = {}
 
-
 SleepInterval: t.TypeAlias = float | int | tuple[int, int]
 
 
