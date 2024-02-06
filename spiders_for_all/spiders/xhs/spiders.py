@@ -364,7 +364,7 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
     database_model = schema.XhsSearchNotes
     item_model = models.XhsSearchNote
     response_model = models.XhsSearchNotesResponse
-    db_action_on_save = DbActionOnSave.DELETE_AND_CREATE
+    db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
 
     def __init__(
         self,
@@ -402,7 +402,9 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
         return response.data.items or []
 
     def item_to_dict(self, item: models.XhsSearchNote, **extra) -> dict:
-        return super().item_to_dict(item, keyword=self.keyword, **extra)
+        return super().item_to_dict(
+            item, keyword=self.keyword, sort=self.sort.value, **extra
+        )
 
     def request_items(self, method: str, url: str, **kwargs: t.Unpack[RequestKwargs]):
         return super().request_items("POST", url, **kwargs)
@@ -434,26 +436,33 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
             "data": data.encode("utf-8"),
         }
 
-    # def get_items(self) -> t.Iterable[models.XhsSearchNote]:
-    #
-    #     has_more = True
-    #     count = 0
-    #
-    #     with self.client:
-    #         while has_more:
-    #             notes: list[models.XhsSearchNote] = self._get_items()  # type: ignore
-    #
-    #             for note in notes:
-    #                 yield note
-    #                 count += 1
-    #                 self.info(f"Note id: {note.id}. {count}/{self.total}")
-    #                 if self.record:
-    #                     self.record_note_id_list.append(note.note_id)
-    #
-    #                 if count >= self.total:
-    #                     has_more = False
-    #                     break
-    #
-    #             self.response: models.XhsSearchNotesResponse
-    #
-    #             has_more = self.response.data.has_more
+    def get_items(self) -> t.Iterable[models.XhsSearchNote]:
+        # Note: This return_items may not equal to self.page_size
+        #       So we should use `has_more` to control the loop
+
+        has_more = True
+        count = 0
+        stop = False
+
+        with self.client:
+            while has_more:
+                notes: list[models.XhsSearchNote] = self._get_items()  # type: ignore
+
+                for note in notes:
+                    yield note
+                    count += 1
+                    self.info(f"Note id: {note.note_id}. {count}/{self.total}")
+
+                    if count >= self.total:
+                        stop = True
+                        break
+
+                if stop:
+                    break
+
+                self.response: models.XhsSearchNotesResponse
+
+                has_more = self.response.data.has_more
+
+                if has_more:
+                    self.sleep(self.sleep_before_next_request)

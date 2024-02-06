@@ -1,7 +1,7 @@
 import typing as t
 
 from pydantic import HttpUrl
-from sqlalchemy import orm
+from sqlalchemy import UniqueConstraint, orm
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from spiders_for_all.database.schema import BaseTable
@@ -22,10 +22,15 @@ class XhsAuthorNotes(XhsAuthorNotesBase):
     note_type: orm.Mapped[str]
 
 
-class XhsSearchNotes(XhsAuthorNotesBase):
+class XhsSearchNotes(BaseTable):
     __tablename__ = "t_xhs_search_notes"
 
+    note_id: orm.Mapped[str] = orm.mapped_column()
     keyword: orm.Mapped[str]
+    sort: orm.Mapped[str]
+
+    # unique index with note_id and sort
+    __table_args__ = (UniqueConstraint("note_id", "sort"),)
 
 
 class XhsNotesContent(XhsAuthorNotesBase):
