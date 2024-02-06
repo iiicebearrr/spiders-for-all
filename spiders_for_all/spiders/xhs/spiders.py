@@ -38,7 +38,7 @@ class BaseXhsSearchSpider(PageSpider):
 
 class XhsSignMixin:
     def sign(
-        self, api: str, client: HttpClient, data: dict | str | None = None
+            self, api: str, client: HttpClient, data: dict | str | None = None
     ) -> sign.SignData:
         """Calculate sign and update headers of client"""
         if "a1" not in client.cookies:
@@ -60,7 +60,7 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
     db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
 
     def __init__(
-        self, uid: str, record: bool = False, **kwargs: t.Unpack[SpiderKwargs]
+            self, uid: str, record: bool = False, **kwargs: t.Unpack[SpiderKwargs]
     ):
         self.uid = uid
         self.api = self.__class__.api.format(uid=uid)
@@ -75,8 +75,8 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
         self.client.cookies = settings.XHS_COOKIES
 
     def get_items_from_response(
-        self,
-        response: requests.Response,  # type: ignore
+            self,
+            response: requests.Response,  # type: ignore
     ) -> t.Iterable[models.XhsUserPostedNote]:
         # TODO: This section may be better to be moved to `get_items`
         #       And here just return a raw response
@@ -133,18 +133,18 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
             return (
                 self.get_note_item(note_or_item)
                 for note_or_item in chain.from_iterable(
+                [
                     [
-                        [
-                            models.XhsAuthorPageNote(**note).note_item
-                            for note in chain.from_iterable(notes)
-                        ],
-                        items_from_api,
-                    ]
-                )
+                        models.XhsAuthorPageNote(**note).note_item
+                        for note in chain.from_iterable(notes)
+                    ],
+                    items_from_api,
+                ]
+            )
             )
 
     def get_queries(
-        self, notes_queries: t.Iterable[models.XhsNoteQuery]
+            self, notes_queries: t.Iterable[models.XhsNoteQuery]
     ) -> models.XhsNoteQuery | None:
         for query in notes_queries:
             if query.cursor:
@@ -153,7 +153,7 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
         return None
 
     def iter_notes_by_cursor(
-        self, query: models.XhsNoteQuery, formats: str | None = None
+            self, query: models.XhsNoteQuery, formats: str | None = None
     ) -> t.Generator[models.XhsUserPostedNote, None, None]:
         formats = formats or const.API_PARAM_IMG_FORMATS
 
@@ -166,11 +166,11 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
                     [
                         f"{key}={value}"
                         for key, value in {
-                            "num": query.num,
-                            "cursor": query.cursor,
-                            "user_id": query.user_id,
-                            "image_formats": formats,
-                        }.items()
+                        "num": query.num,
+                        "cursor": query.cursor,
+                        "user_id": query.user_id,
+                        "image_formats": formats,
+                    }.items()
                     ]
                 )
             )
@@ -193,7 +193,7 @@ class XhsAuthorSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
         return super().item_to_dict(item, author_id=self.uid, **extra)
 
     def get_note_item(
-        self, note_or_item: models.XhsAuthorPageNote | models.XhsUserPostedNote
+            self, note_or_item: models.XhsAuthorPageNote | models.XhsUserPostedNote
     ) -> models.XhsUserPostedNote:
         if isinstance(note_or_item, models.XhsAuthorPageNote):
             return note_or_item.note_item
@@ -220,10 +220,10 @@ class XhsCommentSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
     db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
 
     def __init__(
-        self,
-        note_id: str,
-        sleep_before_next_request: SleepInterval | None = None,
-        **kwargs: t.Unpack[SpiderKwargs],
+            self,
+            note_id: str,
+            sleep_before_next_request: SleepInterval | None = None,
+            **kwargs: t.Unpack[SpiderKwargs],
     ):
         self.note_id = note_id
 
@@ -246,7 +246,7 @@ class XhsCommentSpider(BaseXhsSpider, RateLimitMixin, XhsSignMixin):
         self.total_count = 0
 
     def get_items_from_response(
-        self, response: models.XhsNoteCommentResponse
+            self, response: models.XhsNoteCommentResponse
     ) -> Iterable[models.XhsNoteComment]:
         return response.data.comments
 
@@ -367,13 +367,13 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
     db_action_on_save = DbActionOnSave.UPDATE_OR_CREATE
 
     def __init__(
-        self,
-        keyword: str,
-        total: int | None = None,
-        sort: models.XhsSortType = models.XhsSortType.GENERAL,
-        note_type: models.XhsSearchNoteType = models.XhsSearchNoteType.ALL,
-        sleep_before_next_request: SleepInterval | None = None,
-        **kwargs: t.Unpack[SpiderKwargs],
+            self,
+            keyword: str,
+            total: int | None = None,
+            sort: models.XhsSortType = models.XhsSortType.GENERAL,
+            note_type: models.XhsSearchNoteType = models.XhsSearchNoteType.ALL,
+            sleep_before_next_request: SleepInterval | None = None,
+            **kwargs: t.Unpack[SpiderKwargs],
     ):
         self.keyword = keyword
         self.sort = sort
@@ -397,7 +397,7 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
         self.client.cookies = settings.XHS_COOKIES
 
     def get_items_from_response(
-        self, response: models.XhsSearchNotesResponse
+            self, response: models.XhsSearchNotesResponse
     ) -> t.Iterable[models.XhsSearchNote]:
         return response.data.items or []
 
@@ -453,7 +453,7 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
                     count += 1
                     self.info(f"Note id: {note.note_id}. {count}/{self.total}")
 
-                    if count >= self.total:
+                    if self.total is not None and count >= self.total:
                         stop = True
                         break
 
