@@ -22,6 +22,12 @@ class XhsAuthorNotes(XhsAuthorNotesBase):
     note_type: orm.Mapped[str]
 
 
+class XhsSearchNotes(XhsAuthorNotesBase):
+    __tablename__ = "t_xhs_search_notes"
+
+    keyword: orm.Mapped[str]
+
+
 class XhsNotesContent(XhsAuthorNotesBase):
     __tablename__ = "t_xhs_notes_content"
     __doc__ = "Notes content"
