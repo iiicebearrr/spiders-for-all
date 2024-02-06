@@ -369,7 +369,7 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
     def __init__(
         self,
         keyword: str,
-        total: int,
+        total: int | None = None,
         sort: models.XhsSortType = models.XhsSortType.GENERAL,
         note_type: models.XhsSearchNoteType = models.XhsSearchNoteType.ALL,
         sleep_before_next_request: SleepInterval | None = None,
@@ -456,6 +456,8 @@ class XhsSearchSpider(BaseXhsSearchSpider, RateLimitMixin, XhsSignMixin):
                     if count >= self.total:
                         stop = True
                         break
+
+                self.page_number += 1
 
                 if stop:
                     break
