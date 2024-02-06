@@ -48,7 +48,7 @@ class XhsNotesComments(BaseTable):
     comment_id: orm.Mapped[str] = orm.mapped_column(unique=True)
     note_id: orm.Mapped[str]
     content: orm.Mapped[str]
-    ip_location: orm.Mapped[str]
+    ip_location: orm.Mapped[str] = orm.mapped_column(nullable=True)
     like_count: orm.Mapped[int]
     liked: orm.Mapped[bool]
     target_comment_id: orm.Mapped[t.Optional[str]] = orm.mapped_column(
