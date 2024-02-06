@@ -53,7 +53,7 @@ class XhsNoteComment(BaseModel):
     at_users: list[XhsUserShort]
     content: str
     id: str
-    ip_location: str
+    ip_location: str | None = None
     like_count: int
     liked: bool
     note_id: str
