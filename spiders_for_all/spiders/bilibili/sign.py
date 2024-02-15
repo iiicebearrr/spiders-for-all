@@ -91,7 +91,7 @@ def get_wbi_key(client: HttpClient | None = None) -> str:
 
     with client:
         r = client.get(API_NAV)
-        wbi_img = r.json().get("data", {})
+        wbi_img = r.json().get("data", {}).get("wbi_img", {})
 
         if wbi_img is None:
             raise ValueError("wbi_img not found")
